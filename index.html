@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>毎日おはV</title>
+<meta name="description" content="立ち絵を入れるだけで、今日のおはようVtuber画像ができます">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Oswald:wght@500;700&family=Righteous&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="core/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">毎日おはV</div>
+  <nav class="days" id="days" aria-label="日付をえらぶ"></nav>
+</header>
+
+<main>
+  <div class="heading">
+    <span class="date" id="themeDate">--/--</span>
+    <h1 id="themeTitle">読み込み中…</h1>
+  </div>
+  <div class="stage" id="stage">
+    <canvas id="preview" width="1350" height="1350"></canvas>
+    <button class="empty" id="pickEmpty" type="button">
+      <b>＋</b>
+      <span>立ち絵をえらぶ</span>
+      <small>背景が透明なPNGがおすすめ</small>
+    </button>
+    <div class="spinner" id="spinner" hidden><i></i></div>
+  </div>
+
+  <div class="controls">
+    <div class="picked">
+      <img id="thumb" alt="">
+      <button class="mini" id="btnChange" type="button">立ち絵を変える</button>
+      <button class="mini" id="adjReset" type="button">位置をもどす</button>
+    </div>
+    <label class="row"><span>大きさ</span><input type="range" id="adjScale" min="50" max="200" value="100"></label>
+    <label class="row"><span>左右</span><input type="range" id="adjX" min="-50" max="50" value="0"></label>
+    <label class="row"><span>上下</span><input type="range" id="adjY" min="-50" max="50" value="0"></label>
+  </div>
+
+  <div class="actions">
+    <button class="act save" id="btnSave" type="button" disabled>画像を保存</button>
+    <button class="act share" id="btnShare" type="button" disabled>Xに投稿</button>
+  </div>
+  <p class="note">今日から1週間先までのテーマを選べます。<br>立ち絵はこの端末のブラウザにだけ保存され、次からは開くだけで表示されます。</p>
+</main>
+
+<input type="file" id="file" accept="image/*" hidden>
+<div class="toast" id="toast"></div>
+
+<script src="core/engine.js"></script>
+<script src="core/app.js"></script>
+</body>
+</html>

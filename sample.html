@@ -1,0 +1,3211 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>おはようVtuber ポートレートフレーム生成</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Cinzel:wght@400;500;700&family=EB+Garamond:wght@500;600;700;800&family=Oswald:wght@400;600;700&family=Noto+Sans+JP:wght@400;700;900&family=Noto+Serif+JP:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f2f4f7; --card:#ffffff; --line:#e2e6ec; --fg:#1b2028; --dim:#79808c;
+  --accent:#f5992b; --accent-ink:#3a2405; --focus:#2f6df6;
+  --r:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--fg);
+  font-family:"Noto Sans JP",-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;
+  font-size:15px; line-height:1.6;
+  -webkit-text-size-adjust:100%;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+header{
+  padding:15px 16px; border-bottom:1px solid var(--line);
+  position:sticky; top:0; background:rgba(255,255,255,.9); backdrop-filter:blur(10px); z-index:20;
+}
+header h1{margin:0; font-size:16px; font-weight:900; letter-spacing:.03em}
+main{max-width:1180px; margin:0 auto; padding:16px 14px 90px}
+main > section, main > .stage{margin-bottom:20px}
+/* スマホ（1カラム）では、プレビューのすぐ下に位置・大きさを置いて
+   結果を見ながら調整できるようにする。画面に収まるよう高さも抑える。 */
+.canvas-wrap{max-width:min(100%, 54vh); margin:0 auto}
+@media(min-width:940px){
+  main{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,470px); gap:26px; align-items:start}
+  .s-mode{grid-column:1; grid-row:1}
+  .s-upload{grid-column:1; grid-row:2}
+  .s-adjust{grid-column:1; grid-row:3}
+  .s-text{grid-column:1; grid-row:4}
+  .stage{grid-column:2; grid-row:1 / 5; position:sticky; top:78px}
+  .canvas-wrap{max-width:100%}
+}
+.label{font-size:12px; font-weight:800; letter-spacing:.06em; color:var(--dim); margin:0 0 9px}
+
+/* ---- モードタブ ---- */
+.tabs{display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch; scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  flex:0 0 auto; border:1px solid var(--line); background:var(--card); color:#5a616d;
+  border-radius:999px; padding:10px 16px; font-size:13.5px; font-weight:700; cursor:pointer;
+  white-space:nowrap; transition:.15s; font-family:inherit;
+}
+.tab:hover{border-color:#c9d0da}
+.tab[aria-selected="true"]{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+
+/* ---- アップロード ---- */
+.drop{
+  border:1.5px dashed #ccd3dd; border-radius:var(--r); background:var(--card);
+  padding:22px; text-align:center; cursor:pointer; transition:.15s;
+}
+.drop.over{border-color:var(--accent); background:#fff8ee}
+.drop.has{padding:12px; text-align:left; display:flex; gap:12px; align-items:center}
+.drop input[type=file]{display:none}
+.drop .ph{font-size:14px; font-weight:700; color:#5a616d}
+.thumb{
+  width:60px; height:60px; flex:0 0 auto; border-radius:9px; border:1px solid var(--line);
+  background:
+    linear-gradient(45deg,#eceff3 25%,transparent 25%,transparent 75%,#eceff3 75%),
+    linear-gradient(45deg,#eceff3 25%,#fff 25%,#fff 75%,#eceff3 75%);
+  background-size:14px 14px; background-position:0 0,7px 7px;
+  object-fit:contain;
+}
+.finfo{min-width:0; flex:1; font-size:13.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.mini{background:var(--card); border:1px solid var(--line); color:#5a616d; border-radius:9px; padding:7px 12px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit}
+.mini:hover{border-color:#c9d0da}
+
+/* ---- 立ち絵の調整 ---- */
+.adj{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:12px 14px}
+.adj .row{display:flex; align-items:center; gap:12px; margin-bottom:9px}
+.adj .row span{font-size:12.5px; font-weight:700; color:var(--dim); width:46px; flex:0 0 auto}
+.adj .row input[type=range]{flex:1; min-width:0; -webkit-appearance:none; appearance:none; height:22px; background:transparent}
+.adj .row input[type=range]::-webkit-slider-runnable-track{height:6px; border-radius:3px; background:#e6eaf0}
+.adj .row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:20px; height:20px; margin-top:-7px; border-radius:50%; background:var(--accent); border:2px solid #fff; box-shadow:0 1px 4px rgba(27,32,40,.25)}
+.adj .row input[type=range]::-moz-range-track{height:6px; border-radius:3px; background:#e6eaf0}
+.adj .row input[type=range]::-moz-range-progress{height:6px; border-radius:3px; background:var(--accent)}
+.adj .row input[type=range]::-moz-range-thumb{width:18px; height:18px; border:2px solid #fff; border-radius:50%; background:var(--accent)}
+.adj .row b{font-size:12.5px; width:50px; text-align:right; font-variant-numeric:tabular-nums; font-weight:700}
+.adj .foot{display:flex; justify-content:flex-end}
+
+/* ---- フォーム ---- */
+.field{margin-bottom:13px}
+.field label{display:block; font-size:12.5px; font-weight:700; color:var(--dim); margin-bottom:5px}
+.field .toggle{display:flex; align-items:center; gap:10px; cursor:pointer; margin:0;
+  background:var(--card); border:1px solid var(--line); border-radius:10px; padding:11px 13px;
+  font-size:14px; font-weight:700; color:var(--fg)}
+.field .toggle input{width:19px; height:19px; margin:0; accent-color:var(--accent); cursor:pointer}
+input[type=text],textarea{
+  width:100%; background:var(--card); border:1px solid var(--line); color:var(--fg);
+  border-radius:10px; padding:11px 13px; font-size:15px; font-family:inherit; line-height:1.5;
+  transition:.15s;
+}
+input[type=text]:focus,textarea:focus{outline:none; border-color:var(--focus); box-shadow:0 0 0 3px rgba(47,109,246,.12)}
+textarea{resize:vertical; min-height:76px}
+::placeholder{color:#a8afba}
+
+/* ---- ステージ ---- */
+.canvas-wrap{
+  position:relative; border-radius:var(--r); overflow:hidden; background:var(--card);
+  border:1px solid var(--line); aspect-ratio:1/1;
+}
+.canvas-wrap canvas{display:block; width:100%; height:100%}
+.spinner{
+  position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+  background:rgba(255,255,255,.78); backdrop-filter:blur(2px); z-index:5;
+}
+.spinner.on{display:flex}
+.spinner i{
+  width:32px; height:32px; border:3px solid rgba(27,32,40,.14); border-top-color:var(--accent);
+  border-radius:50%; animation:spin .8s linear infinite; display:block;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  color:#a8afba; font-size:14px; font-weight:700;
+}
+.actions{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px}
+button.act{
+  border:none; border-radius:12px; padding:15px 12px; font-size:14.5px; font-weight:800;
+  cursor:pointer; font-family:inherit; transition:.15s; letter-spacing:.02em;
+}
+button.act:disabled{opacity:.4; cursor:not-allowed}
+.act.save{background:var(--accent); color:var(--accent-ink)}
+.act.share{background:#16181d; color:#fff}
+.toast{
+  position:fixed; left:50%; bottom:24px; transform:translate(-50%,20px); opacity:0; pointer-events:none;
+  background:#1b2028; color:#fff; padding:11px 18px; border-radius:999px; font-size:13px; font-weight:700;
+  transition:.25s; z-index:100; max-width:88vw; text-align:center;
+}
+.toast.on{opacity:1; transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<header>
+  <h1>おはようVtuber ポートレートフレーム</h1>
+</header>
+
+<main>
+  <section class="s-mode">
+    <p class="label">モード</p>
+    <div class="tabs" id="tabs" role="tablist"></div>
+  </section>
+
+  <section class="s-upload">
+    <p class="label">立ち絵</p>
+    <div class="drop" id="drop">
+      <input type="file" id="file" accept="image/*">
+      <div class="ph">タップして画像を選択</div>
+    </div>
+  </section>
+
+  <div class="stage">
+    <div class="canvas-wrap">
+      <canvas id="preview" width="1350" height="1350"></canvas>
+      <div class="empty" id="empty">立ち絵をアップロード</div>
+      <div class="spinner" id="spinner"><i></i></div>
+    </div>
+    <div class="actions">
+      <button class="act save" id="btnSave" disabled>画像を保存</button>
+      <button class="act share" id="btnShare" disabled>Xに投稿</button>
+    </div>
+  </div>
+
+  <section class="s-adjust">
+    <p class="label">位置・大きさ</p>
+    <div class="adj" id="adjust">
+      <div class="row"><span>大きさ</span><input type="range" id="adjScale" min="40" max="400" step="1" value="100"><b id="adjScaleV">100%</b></div>
+      <div class="row"><span>左右</span><input type="range" id="adjX" min="-120" max="120" step="1" value="0"><b id="adjXV">0</b></div>
+      <div class="row"><span>上下</span><input type="range" id="adjY" min="-200" max="200" step="1" value="0"><b id="adjYV">0</b></div>
+      <div class="foot"><button class="mini" type="button" id="adjReset">リセット</button></div>
+    </div>
+  </section>
+
+  <section class="s-text">
+    <p class="label">テキスト</p>
+    <div id="fields"></div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* =========================================================================
+ *  おはようVtuber ポートレートフレーム生成ツール
+ *  - 出力: 1350 x 1350 (1:1)
+ *  - 入力: 背景透過PNG前提（不透明画像でも破綻しないようフォールバック）
+ *  - 依存ライブラリなし / Canvas2D + WebGL2 のみ
+ *  構成: [1]共通ユーティリティ [2]WebGL2コア [3]シェーダ [4]フィルタ
+ *        [5]描画プリミティブ [6]5モード定義 [7]アプリ本体
+ * ====================================================================== */
+
+const OUT = 1350;               // 出力解像度（正方形）
+
+/* =========================================================================
+ * [1] 共通ユーティリティ
+ * ====================================================================== */
+
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
+const rnd = (s) => { // 決定的な擬似乱数（同じ入力で同じ絵になるように）
+  let x = s | 0 || 1;
+  return () => { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; return ((x >>> 0) % 100000) / 100000; };
+};
+function debounce(fn, ms) {
+  let t = 0;
+  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+}
+function newCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return c;
+}
+
+/* ---- 色 ---- */
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  let h = 0, s = 0; const l = (mx + mn) / 2;
+  const d = mx - mn;
+  if (d > 0.0001) {
+    s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    if (mx === r) h = ((g - b) / d + (g < b ? 6 : 0));
+    else if (mx === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h /= 6;
+  }
+  return [h * 360, s, l];
+}
+function hsl(h, s, l, a) {
+  h = ((h % 360) + 360) % 360;
+  return `hsla(${h.toFixed(1)},${(clamp(s, 0, 1) * 100).toFixed(1)}%,${(clamp(l, 0, 1) * 100).toFixed(1)}%,${a === undefined ? 1 : a})`;
+}
+
+/* ---- 画像解析 ----------------------------------------------------------
+ * 透過PNGを前提に、被写体の外接矩形（アルファbbox）と平均色を取得する。
+ * 平均色は各モードの配色（背景・帯・ロゴ色）を立ち絵に馴染ませるのに使う。
+ * ------------------------------------------------------------------- */
+function analyzeImage(img) {
+  const S = 220; // 解析用の縮小サイズ
+  const scale = Math.min(S / img.naturalWidth, S / img.naturalHeight, 1);
+  const w = Math.max(1, Math.round(img.naturalWidth * scale));
+  const h = Math.max(1, Math.round(img.naturalHeight * scale));
+  const c = newCanvas(w, h);
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.drawImage(img, 0, 0, w, h);
+  const d = x.getImageData(0, 0, w, h).data;
+
+  let minX = w, minY = h, maxX = -1, maxY = -1;
+  let transparent = 0, n = 0, sr = 0, sg = 0, sb = 0;
+  // 色相ヒストグラム（36分割）で「支配的な色」を求める。最も彩度の高い
+  // 1画素を拾うと小さな装飾に引きずられるため、面積で重み付けする。
+  const BIN = 36;
+  const hw = new Float64Array(BIN), hr = new Float64Array(BIN),
+        hg = new Float64Array(BIN), hb = new Float64Array(BIN);
+
+  for (let y = 0; y < h; y++) {
+    for (let px = 0; px < w; px++) {
+      const i = (y * w + px) * 4;
+      const a = d[i + 3];
+      if (a < 24) { transparent++; continue; }
+      if (a > 200) {
+        if (px < minX) minX = px; if (px > maxX) maxX = px;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+      }
+      const r = d[i], g = d[i + 1], b = d[i + 2];
+      sr += r; sg += g; sb += b; n++;
+      // 彩度が高く明るすぎない画素をアクセント色候補に
+      const [hh, ss, ll] = rgbToHsl(r, g, b);
+      if (ss > 0.14 && ll > 0.14 && ll < 0.9) {
+        const bi = Math.min(BIN - 1, Math.floor(hh / 360 * BIN));
+        const w = ss * (1 - Math.abs(ll - 0.5) * 0.9);
+        hw[bi] += w; hr[bi] += r * w; hg[bi] += g * w; hb[bi] += b * w;
+      }
+    }
+  }
+  if (maxX < 0) { minX = 0; minY = 0; maxX = w - 1; maxY = h - 1; }
+  const total = w * h;
+  const avg = n ? [sr / n, sg / n, sb / n] : [180, 180, 180];
+  let top = 0;
+  for (let i = 1; i < BIN; i++) if (hw[i] > hw[top]) top = i;
+  const accent = hw[top] > 0
+    ? [hr[top] / hw[top], hg[top] / hw[top], hb[top] / hw[top]]
+    : avg;
+
+  return {
+    hasAlpha: transparent / total > 0.06,   // 透過PNGとみなせるか
+    // 元画像座標系に戻した被写体bbox
+    bbox: {
+      x: minX / w, y: minY / h,
+      w: (maxX - minX + 1) / w, h: (maxY - minY + 1) / h
+    },
+    avg,
+    accentHsl: rgbToHsl(accent[0], accent[1], accent[2])
+  };
+}
+
+/* ---- 被写体の配置計算 --------------------------------------------------
+ * アルファbboxを基準に「箱に収める」矩形を返す。
+ * fit:'contain'（全身が入る） / 'cover'（箱を埋める）
+ * anchorY: 0=上寄せ 0.5=中央 1=下寄せ（bbox基準）
+ * scale / dx / dy: ユーザーによる微調整（dx,dyは箱のサイズに対する比率）
+ * ------------------------------------------------------------------- */
+function placeSubject(img, meta, box, opt) {
+  opt = opt || {};
+  const fit = opt.fit || 'contain';
+  const ax = opt.anchorX === undefined ? 0.5 : opt.anchorX;
+  const ay = opt.anchorY === undefined ? 1 : opt.anchorY;
+  const bb = meta.bbox;
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  // 実効的な被写体サイズ（px）
+  const sw = bb.w * iw, sh = bb.h * ih;
+  const sx = Math.min(box.w / sw, box.h / sh);
+  const cv = Math.max(box.w / sw, box.h / sh);
+  const s = (fit === 'cover' ? cv : sx) * (opt.scale || 1);
+  // bbox 左上が来るべき座標
+  const dx = box.x + (box.w - sw * s) * ax - bb.x * iw * s + (opt.dx || 0) * box.w;
+  const dy = box.y + (box.h - sh * s) * ay - bb.y * ih * s + (opt.dy || 0) * box.h;
+  return { x: dx, y: dy, w: iw * s, h: ih * s, s,
+           // bboxの実際の描画位置（テキスト回り込みなどに使う）
+           bx: dx + bb.x * iw * s, by: dy + bb.y * ih * s, bw: sw * s, bh: sh * s };
+}
+function drawSubject(ctx, img, p) { ctx.drawImage(img, p.x, p.y, p.w, p.h); }
+
+/* ユーザー調整（env.adj）を織り込んで配置を求める。全モードはこちらを使う */
+function place(env, box, opt) {
+  const a = (env && env.adj) || { scale: 1, dx: 0, dy: 0 };
+  const o = Object.assign({}, opt);
+  o.scale = (o.scale || 1) * a.scale;
+  o.dx = (o.dx || 0) + a.dx;
+  o.dy = (o.dy || 0) + a.dy;
+  return placeSubject(env.img, env.meta, box, o);
+}
+
+/* =========================================================================
+ * [2] WebGL2 コア（フィルタ用のオフスクリーン基盤）
+ * ====================================================================== */
+
+const GLX = (() => {
+  let cv = null, gl = null, quad = null, failed = false;
+  const progs = new Map();
+
+  function ctx() {
+    if (gl || failed) return gl;
+    cv = newCanvas(8, 8);
+    gl = cv.getContext('webgl2', {
+      antialias: false, alpha: true, depth: true,
+      premultipliedAlpha: false, preserveDrawingBuffer: true
+    });
+    if (!gl) { failed = true; return null; }
+    gl.getExtension('EXT_color_buffer_float');
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    return gl;
+  }
+
+  function compile(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      const log = gl.getShaderInfoLog(s);
+      console.error(log, src);
+      throw new Error('shader compile error: ' + log);
+    }
+    return s;
+  }
+  function program(key, vs, fs) {
+    if (progs.has(key)) return progs.get(key);
+    const p = gl.createProgram();
+    gl.attachShader(p, compile(gl.VERTEX_SHADER, vs));
+    gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+    gl.bindAttribLocation(p, 0, 'a_pos');
+    gl.bindAttribLocation(p, 1, 'a_uv');
+    gl.bindAttribLocation(p, 2, 'a_nrm');
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    progs.set(key, p);
+    return p;
+  }
+
+  let aniso;   // EXT_texture_filter_anisotropic（無ければ null）
+  function texture(src, opt) {
+    opt = opt || {};
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, opt.repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, opt.repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    if (opt.mip === false) {
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      return t;
+    }
+    // 奥の本や床のように大きく縮小される面は、ミップマップが無いと
+    // 点サンプリングになってジャギー・ちらつきが出る
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    if (aniso === undefined) {
+      aniso = gl.getExtension('EXT_texture_filter_anisotropic') || null;
+      if (aniso) aniso.max = gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+    }
+    if (aniso) gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, aniso.max));
+    return t;
+  }
+
+  function fbo(w, h, withDepth) {
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    const f = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+    let rb = null;
+    if (withDepth) {
+      rb = gl.createRenderbuffer();
+      gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, w, h);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rb);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return { tex: t, fb: f, rb, w, h };
+  }
+
+  /* uniform をまとめて設定。テクスチャは {tex:...} 形式で渡す */
+  function setUniforms(p, u) {
+    let unit = 0;
+    for (const k in u) {
+      const loc = gl.getUniformLocation(p, k);
+      if (loc === null) continue;
+      const v = u[k];
+      if (v === undefined || v === null) continue;
+      if (v && v.tex !== undefined && v.fb === undefined && typeof v.tex !== 'number') {
+        gl.activeTexture(gl.TEXTURE0 + unit);
+        gl.bindTexture(gl.TEXTURE_2D, v.tex);
+        gl.uniform1i(loc, unit); unit++;
+      } else if (v instanceof Float32Array || Array.isArray(v)) {
+        if (v.length === 16) gl.uniformMatrix4fv(loc, false, v);
+        else if (v.length === 4) gl.uniform4fv(loc, v);
+        else if (v.length === 3) gl.uniform3fv(loc, v);
+        else if (v.length === 2) gl.uniform2fv(loc, v);
+        else gl.uniform1fv(loc, v);
+      } else if (typeof v === 'boolean') {
+        gl.uniform1i(loc, v ? 1 : 0);
+      } else if (Number.isInteger(v) && Math.abs(v) < 1e6 && k.startsWith('i_')) {
+        gl.uniform1i(loc, v);
+      } else {
+        gl.uniform1f(loc, v);
+      }
+    }
+  }
+
+  /* フルスクリーン1パス */
+  function pass(prog, uniforms, target) {
+    const w = target ? target.w : cv.width, h = target ? target.h : cv.height;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.fb : null);
+    gl.viewport(0, 0, w, h);
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.BLEND);
+    gl.useProgram(prog);
+    setUniforms(prog, Object.assign({ u_res: [w, h] }, uniforms));
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.disableVertexAttribArray(1);
+    gl.disableVertexAttribArray(2);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  function resize(w, h) { cv.width = w; cv.height = h; }
+  function dispose(list) {
+    for (const o of list) {
+      if (!o) continue;
+      if (o.fb) { gl.deleteFramebuffer(o.fb); gl.deleteTexture(o.tex); if (o.rb) gl.deleteRenderbuffer(o.rb); }
+      else gl.deleteTexture(o);
+    }
+  }
+
+  return {
+    get gl() { return ctx(); },
+    get canvas() { return cv; },
+    available() { return !!ctx(); },
+    program, texture, fbo, pass, resize, dispose, setUniforms
+  };
+})();
+
+/* 頂点シェーダ（フルスクリーン三角形） */
+const VS_FULL = `#version 300 es
+in vec2 a_pos;
+out vec2 v_uv;
+void main(){ v_uv = a_pos * 0.5 + 0.5; gl_Position = vec4(a_pos, 0.0, 1.0); }`;
+
+const FS_HEAD = `#version 300 es
+precision highp float;
+precision highp sampler2D;
+in vec2 v_uv;
+out vec4 fragColor;
+uniform vec2 u_res;
+`;
+
+/* =========================================================================
+ * [3] フラグメントシェーダ群
+ * ====================================================================== */
+
+/* 共通のノイズ関数 */
+const GLSL_NOISE = `
+float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+float vnoise(vec2 p){
+  vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
+  return mix(mix(hash12(i), hash12(i+vec2(1,0)), f.x),
+             mix(hash12(i+vec2(0,1)), hash12(i+vec2(1,1)), f.x), f.y);
+}
+float fbm(vec2 p){ float v=0.0, a=0.5; for(int i=0;i<5;i++){ v += a*vnoise(p); p *= 2.03; a *= 0.5; } return v; }
+float luma(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
+`;
+
+/* --- 構造テンソル（Sobel）: 局所的な模様の方向を推定する第1段 --- */
+const FS_TENSOR = FS_HEAD + `
+uniform sampler2D u_tex;
+void main(){
+  vec2 px = 1.0 / u_res;
+  vec3 t00 = texture(u_tex, v_uv + px*vec2(-1,-1)).rgb;
+  vec3 t10 = texture(u_tex, v_uv + px*vec2( 0,-1)).rgb;
+  vec3 t20 = texture(u_tex, v_uv + px*vec2( 1,-1)).rgb;
+  vec3 t01 = texture(u_tex, v_uv + px*vec2(-1, 0)).rgb;
+  vec3 t21 = texture(u_tex, v_uv + px*vec2( 1, 0)).rgb;
+  vec3 t02 = texture(u_tex, v_uv + px*vec2(-1, 1)).rgb;
+  vec3 t12 = texture(u_tex, v_uv + px*vec2( 0, 1)).rgb;
+  vec3 t22 = texture(u_tex, v_uv + px*vec2( 1, 1)).rgb;
+  vec3 gx = (t00 + 2.0*t01 + t02 - t20 - 2.0*t21 - t22) * 0.25;
+  vec3 gy = (t00 + 2.0*t10 + t20 - t02 - 2.0*t12 - t22) * 0.25;
+  // E,G は [0,1]、F は [-1,1] に収まるよう正規化して RGBA8 に格納
+  float E = clamp(dot(gx, gx) / 3.0, 0.0, 1.0);
+  float G = clamp(dot(gy, gy) / 3.0, 0.0, 1.0);
+  float F = clamp(dot(gx, gy) / 3.0, -1.0, 1.0);
+  fragColor = vec4(E, F * 0.5 + 0.5, G, 1.0);
+}`;
+
+/* --- 分離ガウスぼかし --- */
+const FS_BLUR = FS_HEAD + `
+uniform sampler2D u_tex;
+uniform vec2 u_dir;      // (1,0) or (0,1)
+uniform float u_radius;  // px
+void main(){
+  vec2 px = 1.0 / u_res;
+  float sigma = max(u_radius * 0.5, 0.5);
+  vec4 sum = vec4(0.0); float wsum = 0.0;
+  for (int i = -12; i <= 12; i++){
+    float fi = float(i);
+    if (abs(fi) > u_radius) continue;
+    float w = exp(-(fi*fi) / (2.0*sigma*sigma));
+    sum += texture(u_tex, v_uv + u_dir * px * fi) * w;
+    wsum += w;
+  }
+  fragColor = sum / wsum;
+}`;
+
+/* --- 異方性 Kuwahara フィルタ（8セクタ / 楕円サンプリング） -------------
+ * 構造テンソルから局所方向 φ と異方性 A を求め、方向に沿って伸ばした楕円を
+ * 8セクタに分割。各セクタの平均色と分散を求め、分散が小さいセクタを重く
+ * 採用することで、輪郭を保ったまま絵画的な塗りに変換する。
+ * ------------------------------------------------------------------- */
+const FS_AKF = FS_HEAD + GLSL_NOISE + `
+uniform sampler2D u_tex;
+uniform sampler2D u_tensor;
+uniform float u_radius;     // 基準半径(px)
+uniform float u_sharpness;  // 大きいほどエッジが立つ
+const float PI = 3.14159265;
+void main(){
+  vec2 px = 1.0 / u_res;
+  vec4 t = texture(u_tensor, v_uv);
+  float E = t.r, F = t.g * 2.0 - 1.0, G = t.b;
+  float disc = sqrt(max(0.0, (E-G)*(E-G) + 4.0*F*F));
+  float l1 = 0.5 * (E + G + disc);
+  float l2 = 0.5 * (E + G - disc);
+  float A  = (l1 + l2) > 1e-6 ? (l1 - l2) / (l1 + l2) : 0.0;
+  vec2 tang = vec2(l1 - E, -F);                 // 局所的な模様の接線方向
+  float phi = length(tang) > 1e-6 ? atan(tang.y, tang.x) : 0.0;
+  float ca = cos(phi), sa = sin(phi);
+
+  float a = u_radius * clamp((1.0 + A) / 1.0, 0.4, 1.7);   // 接線方向に伸ばす
+  float b = u_radius * clamp(1.0 / (1.0 + A), 0.4, 1.7);
+  int R = int(ceil(max(a, b)));
+
+  vec3 m[8]; vec3 s2[8]; float wt[8];
+  for (int k = 0; k < 8; k++){ m[k] = vec3(0.0); s2[k] = vec3(0.0); wt[k] = 0.0; }
+
+  for (int y = -10; y <= 10; y++){
+    if (abs(y) > R) continue;
+    for (int x = -10; x <= 10; x++){
+      if (abs(x) > R) continue;
+      vec2 off = vec2(float(x), float(y));
+      // 楕円ローカル座標へ（-φ 回転して軸長で正規化）
+      vec2 q = vec2(off.x*ca + off.y*sa, -off.x*sa + off.y*ca) / vec2(a, b);
+      float d2 = dot(q, q);
+      if (d2 > 1.0) continue;
+      vec3 c = texture(u_tex, v_uv + off * px).rgb;
+      float gw = exp(-2.2 * d2);
+      float ang = atan(q.y, q.x);
+      for (int k = 0; k < 8; k++){
+        float cw = cos(ang - float(k) * PI * 0.25);
+        float w = gw * pow(max(cw, 0.0), 6.0);
+        m[k]  += c * w;
+        s2[k] += c * c * w;
+        wt[k] += w;
+      }
+    }
+  }
+  vec3 res = vec3(0.0); float total = 0.0;
+  for (int k = 0; k < 8; k++){
+    if (wt[k] < 1e-5) continue;
+    vec3 mean = m[k] / wt[k];
+    vec3 var  = abs(s2[k] / wt[k] - mean * mean);
+    float sigma = sqrt(dot(var, vec3(0.299, 0.587, 0.114)));
+    float w = 1.0 / (1.0 + pow(clamp(sigma, 0.0, 1.0) * 40.0, u_sharpness));
+    res += mean * w; total += w;
+  }
+  fragColor = vec4(res / max(total, 1e-5), 1.0);
+}`;
+
+/* --- 水彩の「にじみ」: 輝度は保持し色差(Cb/Cr)だけぼかす --- */
+const FS_CHROMA = FS_HEAD + `
+uniform sampler2D u_sharp;
+uniform sampler2D u_blur;
+uniform float u_amount;
+vec3 toYcc(vec3 c){
+  return vec3(dot(c, vec3(0.299,0.587,0.114)),
+              -0.168736*c.r - 0.331264*c.g + 0.5*c.b,
+               0.5*c.r - 0.418688*c.g - 0.081312*c.b);
+}
+vec3 toRgb(vec3 y){
+  return vec3(y.x + 1.402*y.z, y.x - 0.344136*y.y - 0.714136*y.z, y.x + 1.772*y.y);
+}
+void main(){
+  vec3 s = toYcc(texture(u_sharp, v_uv).rgb);
+  vec3 b = toYcc(texture(u_blur,  v_uv).rgb);
+  vec3 o = vec3(s.x, mix(s.y, b.y, u_amount), mix(s.z, b.z, u_amount));
+  fragColor = vec4(clamp(toRgb(o), 0.0, 1.0), 1.0);
+}`;
+
+/* --- 紙・キャンバス質感を multiply で薄く重ねる + 周辺減光 --- */
+const FS_PAPER = FS_HEAD + GLSL_NOISE + `
+uniform sampler2D u_tex;
+uniform float u_amount;     // 質感の強さ
+uniform float u_scale;      // 目の細かさ
+uniform float u_vignette;
+uniform float u_sat, u_con;
+uniform vec3  u_tint;       // 紙の色味
+void main(){
+  vec3 c = texture(u_tex, v_uv).rgb;
+  // 絵画化で眠くなった彩度・コントラストを少し戻す
+  c = clamp(mix(vec3(luma(c)), c, u_sat), 0.0, 1.0);
+  c = clamp((c - 0.5) * u_con + 0.5, 0.0, 1.0);
+  vec2 p = v_uv * u_scale;
+  // キャンバス地の織り目 + 紙の繊維
+  float weave = (sin(p.x * 3.0) * sin(p.y * 3.0)) * 0.5 + 0.5;
+  float fiber = fbm(p * 0.35);
+  float grain = hash12(floor(v_uv * u_res * 0.75));
+  float tex = mix(weave, fiber, 0.72) * 0.75 + grain * 0.25;
+  c *= mix(vec3(1.0), u_tint * (0.72 + tex * 0.5), u_amount);
+  // 端に向かって色を沈ませる（水彩紙のにじみ止め風）
+  float d = length(v_uv - 0.5) * 1.42;
+  c *= 1.0 - smoothstep(0.55, 1.15, d) * u_vignette;
+  fragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+}`;
+
+/* --- 劇画調（ポスタライズ + インク輪郭 + 網点 + グレイン + デュオトーン） --- */
+const FS_GEKIGA = FS_HEAD + GLSL_NOISE + `
+uniform sampler2D u_tex;
+uniform float u_levels;      // 階調数 4〜6
+uniform float u_edge;        // 輪郭線の強さ
+uniform float u_dot;         // 網点のピッチ(px)
+uniform float u_grain;
+uniform float u_duotone;     // 0=モノクロ 1=デュオトーン
+uniform vec3  u_dark;
+uniform vec3  u_light;
+uniform vec3  u_accent;
+float lumAt(vec2 uv){ return luma(texture(u_tex, uv).rgb); }
+void main(){
+  vec2 px = 1.0 / u_res;
+  vec3 src = texture(u_tex, v_uv).rgb;
+  float l = luma(src);
+
+  // 1) ハイコントラスト化 → 輝度ポスタライズ
+  float hc = clamp((l - 0.5) * 1.55 + 0.5, 0.0, 1.0);
+  float q  = floor(hc * u_levels) / max(u_levels - 1.0, 1.0);
+  q = clamp(q, 0.0, 1.0);
+
+  // 2) Sobel エッジ → 二値化した黒線
+  float gx = lumAt(v_uv+px*vec2(-1,-1)) + 2.0*lumAt(v_uv+px*vec2(-1,0)) + lumAt(v_uv+px*vec2(-1,1))
+           - lumAt(v_uv+px*vec2( 1,-1)) - 2.0*lumAt(v_uv+px*vec2( 1,0)) - lumAt(v_uv+px*vec2( 1,1));
+  float gy = lumAt(v_uv+px*vec2(-1,-1)) + 2.0*lumAt(v_uv+px*vec2(0,-1)) + lumAt(v_uv+px*vec2(1,-1))
+           - lumAt(v_uv+px*vec2(-1, 1)) - 2.0*lumAt(v_uv+px*vec2(0, 1)) - lumAt(v_uv+px*vec2(1, 1));
+  float edge = smoothstep(0.16, 0.42, length(vec2(gx, gy)));
+
+  // 3) 影の領域にハーフトーン網点（30度回転した格子）
+  float ang = 0.5236;
+  vec2 rp = vec2(v_uv.x*u_res.x*cos(ang) - v_uv.y*u_res.y*sin(ang),
+                 v_uv.x*u_res.x*sin(ang) + v_uv.y*u_res.y*cos(ang));
+  vec2 cell = mod(rp, u_dot) - u_dot * 0.5;
+  float shade = smoothstep(0.62, 0.16, q);                 // 暗い所ほど1
+  float radius = u_dot * 0.52 * sqrt(clamp(shade, 0.0, 1.0));
+  float dot_ = 1.0 - smoothstep(radius - 0.9, radius + 0.9, length(cell));
+  float halftone = 1.0 - dot_ * 0.85 * step(0.02, shade);
+
+  // 4) 合成
+  float ink = clamp(q * halftone * (1.0 - edge * u_edge), 0.0, 1.0);
+  float g = hash12(v_uv * u_res + 17.0);
+  ink = clamp(ink + (g - 0.5) * u_grain, 0.0, 1.0);
+
+  vec3 mono = mix(u_dark, u_light, ink);
+  vec3 duo  = mix(mix(u_dark, u_accent, smoothstep(0.05, 0.62, ink)),
+                  u_light, smoothstep(0.62, 1.0, ink));
+  fragColor = vec4(mix(mono, duo, u_duotone), 1.0);
+}`;
+
+/* --- 新聞の網点写真（粗いグレースケール網点 + 紙の地） --- */
+const FS_NEWSPRINT = FS_HEAD + GLSL_NOISE + `
+uniform sampler2D u_tex;
+uniform float u_dot;
+uniform vec3 u_paper;
+uniform vec3 u_ink;
+void main(){
+  vec3 src = texture(u_tex, v_uv).rgb;
+  float l = clamp((luma(src) - 0.5) * 1.28 + 0.52, 0.0, 1.0);
+  float ang = 0.7854;
+  vec2 p = v_uv * u_res;
+  vec2 rp = vec2(p.x*cos(ang) - p.y*sin(ang), p.x*sin(ang) + p.y*cos(ang));
+  vec2 cell = mod(rp, u_dot) - u_dot * 0.5;
+  float radius = u_dot * 0.58 * sqrt(clamp(1.0 - l, 0.0, 1.0));
+  float d = 1.0 - smoothstep(radius - 0.7, radius + 0.7, length(cell));
+  float ink = clamp(d + (1.0 - l) * 0.18, 0.0, 1.0);
+  // インクのかすれ
+  ink *= 0.86 + 0.14 * hash12(floor(p * 0.5));
+  fragColor = vec4(mix(u_paper, u_ink, ink), 1.0);
+}`;
+
+/* --- 2枚を一定比率で混ぜる（水彩の軟化に使用） --- */
+const FS_MIX = FS_HEAD + `
+uniform sampler2D u_a;
+uniform sampler2D u_b;
+uniform float u_amount;
+void main(){
+  fragColor = vec4(mix(texture(u_a, v_uv).rgb, texture(u_b, v_uv).rgb, u_amount), 1.0);
+}`;
+
+/* --- 被写界深度合成（CoCマスクで sharp と blur を混ぜる） --- */
+const FS_DOF = FS_HEAD + `
+uniform sampler2D u_sharp;
+uniform sampler2D u_blur;
+uniform sampler2D u_coc;
+void main(){
+  float coc = texture(u_coc, v_uv).r;
+  fragColor = vec4(mix(texture(u_sharp, v_uv).rgb, texture(u_blur, v_uv).rgb, clamp(coc,0.0,1.0)), 1.0);
+}`;
+
+/* =========================================================================
+ * [4] フィルタ（WebGL2 マルチパス）
+ * ====================================================================== */
+
+/* GL でパスを組み立て、結果を 2D キャンバスとして返す共通ラッパ */
+function glRun(w, h, build) {
+  const gl = GLX.gl;
+  if (!gl) return null;
+  GLX.resize(w, h);
+  const trash = [];
+  try {
+    build(gl, trash);
+  } catch (e) {
+    console.error(e);
+    GLX.dispose(trash);
+    return null;
+  }
+  const out = newCanvas(w, h);
+  out.getContext('2d').drawImage(GLX.canvas, 0, 0);
+  GLX.dispose(trash);
+  return out;
+}
+
+/* --- 水彩風（RPGモード用） ---------------------------------------------
+ * Sobel構造テンソル → テンソル平滑化 → 異方性Kuwahara → 色差ぼかし →
+ * 全体の軟化 → 紙質multiply、の5段パイプライン。
+ * ------------------------------------------------------------------- */
+function fxWatercolor(src, opt) {
+  opt = opt || {};
+  const RW = opt.w || opt.res || 760, RH = opt.h || opt.res || 760;
+  return glRun(RW, RH, (gl, trash) => {
+    const pTensor = GLX.program('tensor', VS_FULL, FS_TENSOR);
+    const pBlur = GLX.program('blur', VS_FULL, FS_BLUR);
+    const pAkf = GLX.program('akf', VS_FULL, FS_AKF);
+    const pChroma = GLX.program('chroma', VS_FULL, FS_CHROMA);
+    const pMix = GLX.program('mix', VS_FULL, FS_MIX);
+    const pPaper = GLX.program('paper', VS_FULL, FS_PAPER);
+
+    const tex = GLX.texture(src); trash.push(tex);
+    const A = GLX.fbo(RW, RH), B = GLX.fbo(RW, RH), C = GLX.fbo(RW, RH),
+          D = GLX.fbo(RW, RH), E = GLX.fbo(RW, RH), F = GLX.fbo(RW, RH);
+    trash.push(A, B, C, D, E, F);
+
+    // 1) 構造テンソル → 2パスぼかしで方向場を安定させる
+    GLX.pass(pTensor, { u_tex: { tex } }, A);
+    GLX.pass(pBlur, { u_tex: { tex: A.tex }, u_dir: [1, 0], u_radius: 4 }, B);
+    GLX.pass(pBlur, { u_tex: { tex: B.tex }, u_dir: [0, 1], u_radius: 4 }, C);
+
+    // 2) 異方性Kuwahara（絵画的な塗り）
+    GLX.pass(pAkf, {
+      u_tex: { tex }, u_tensor: { tex: C.tex },
+      u_radius: opt.radius === undefined ? 4.0 : opt.radius,
+      u_sharpness: opt.sharpness === undefined ? 7.0 : opt.sharpness
+    }, D);
+
+    // 3) 色差を大きくぼかして「にじみ」を作る
+    GLX.pass(pBlur, { u_tex: { tex: D.tex }, u_dir: [1, 0], u_radius: 11 }, A);
+    GLX.pass(pBlur, { u_tex: { tex: A.tex }, u_dir: [0, 1], u_radius: 11 }, B);
+    GLX.pass(pChroma, { u_sharp: { tex: D.tex }, u_blur: { tex: B.tex }, u_amount: 0.85 }, E);
+
+    // 4) 全体を軽くぼかして混ぜ、絵の具が紙に染みたような軟らかい輪郭にする
+    GLX.pass(pBlur, { u_tex: { tex: E.tex }, u_dir: [1, 0], u_radius: 5 }, A);
+    GLX.pass(pBlur, { u_tex: { tex: A.tex }, u_dir: [0, 1], u_radius: 5 }, B);
+    GLX.pass(pMix, {
+      u_a: { tex: E.tex }, u_b: { tex: B.tex },
+      u_amount: opt.soften === undefined ? 0.55 : opt.soften
+    }, F);
+
+    // 5) 紙質を multiply
+    GLX.pass(pPaper, {
+      u_tex: { tex: F.tex }, u_amount: 0.50, u_scale: 620.0,
+      u_vignette: 0.30, u_sat: 1.45, u_con: 1.08, u_tint: [1.0, 0.975, 0.925]
+    }, null);
+  });
+}
+
+/* --- 劇画調（映画ポスター用） ------------------------------------------
+ * 軽いKuwaharaで面を整えてから、ポスタライズ／輪郭線／網点／グレイン／
+ * デュオトーンを1パスで重ねる。
+ * ------------------------------------------------------------------- */
+function fxGekiga(src, opt) {
+  opt = opt || {};
+  const RW = opt.w || opt.res || 900, RH = opt.h || opt.res || 900;
+  return glRun(RW, RH, (gl, trash) => {
+    const pTensor = GLX.program('tensor', VS_FULL, FS_TENSOR);
+    const pBlur = GLX.program('blur', VS_FULL, FS_BLUR);
+    const pAkf = GLX.program('akf', VS_FULL, FS_AKF);
+    const pGek = GLX.program('gekiga', VS_FULL, FS_GEKIGA);
+
+    const tex = GLX.texture(src); trash.push(tex);
+    const A = GLX.fbo(RW, RH), B = GLX.fbo(RW, RH), C = GLX.fbo(RW, RH), D = GLX.fbo(RW, RH);
+    trash.push(A, B, C, D);
+
+    GLX.pass(pTensor, { u_tex: { tex } }, A);
+    GLX.pass(pBlur, { u_tex: { tex: A.tex }, u_dir: [1, 0], u_radius: 3 }, B);
+    GLX.pass(pBlur, { u_tex: { tex: B.tex }, u_dir: [0, 1], u_radius: 3 }, C);
+    GLX.pass(pAkf, { u_tex: { tex }, u_tensor: { tex: C.tex }, u_radius: 3.0, u_sharpness: 6.0 }, D);
+
+    GLX.pass(pGek, {
+      u_tex: { tex: D.tex },
+      u_levels: opt.levels || 5.0,
+      u_edge: opt.edge === undefined ? 0.92 : opt.edge,
+      u_dot: opt.dot || 5.0,
+      u_grain: opt.grain === undefined ? 0.075 : opt.grain,
+      u_duotone: opt.duotone === undefined ? 1.0 : opt.duotone,
+      u_dark: opt.dark || [0.055, 0.05, 0.06],
+      u_light: opt.light || [0.94, 0.925, 0.90],
+      u_accent: opt.accent || [0.72, 0.16, 0.13]
+    }, null);
+  });
+}
+
+/* --- 新聞の網点写真 --- */
+function fxNewsprint(src, w, h, opt) {
+  opt = opt || {};
+  return glRun(w, h, (gl, trash) => {
+    const p = GLX.program('newsprint', VS_FULL, FS_NEWSPRINT);
+    const tex = GLX.texture(src); trash.push(tex);
+    GLX.pass(p, {
+      u_tex: { tex }, u_dot: opt.dot || 4.6,
+      u_paper: opt.paper || [0.945, 0.930, 0.895],
+      u_ink: opt.ink || [0.10, 0.10, 0.11]
+    }, null);
+  });
+}
+
+/* =========================================================================
+ * [5] 描画プリミティブ（Canvas2D）
+ * ====================================================================== */
+
+const FONT = {
+  logo: '"Anton","Noto Sans JP",sans-serif',            // 雑誌ロゴ（英字想定）
+  fantasy: '"Cinzel","EB Garamond","Times New Roman","Noto Serif JP",serif', // RPGロゴ（英字想定）
+  cond: '"Oswald","Noto Sans JP",sans-serif',           // コンデンス系（欧文小見出し）
+  sans: '"Noto Sans JP",sans-serif',
+  serif: '"Noto Serif JP",serif',
+  poster: '"Anton","Noto Serif JP",serif'      // 映画ポスターのタイトル（欧文はAnton）
+};
+
+function f(weight, size, family) { return `${weight} ${size}px ${family}`; }
+
+/* 指定幅に収まる最大フォントサイズを二分探索で求める */
+function fitSize(ctx, text, weight, family, maxW, maxSize, minSize, tracking) {
+  tracking = tracking || 0;
+  let lo = minSize || 8, hi = maxSize, best = lo;
+  for (let i = 0; i < 22; i++) {
+    const mid = (lo + hi) / 2;
+    ctx.font = f(weight, mid, family);
+    const w = ctx.measureText(text).width + tracking * mid * Math.max(0, text.length - 1);
+    if (w <= maxW) { best = mid; lo = mid; } else { hi = mid; }
+  }
+  return best;
+}
+
+/* 字送り（letter-spacing）付きテキスト描画。align: left|center|right */
+function drawTracked(ctx, text, x, y, tracking, align, mode) {
+  const chars = Array.from(text);
+  const sp = tracking;
+  let total = 0;
+  const ws = chars.map(c => { const w = ctx.measureText(c).width; total += w; return w; });
+  total += sp * Math.max(0, chars.length - 1);
+  let cx = align === 'center' ? x - total / 2 : (align === 'right' ? x - total : x);
+  const prev = ctx.textAlign;
+  ctx.textAlign = 'left';
+  for (let i = 0; i < chars.length; i++) {
+    if (mode === 'stroke') ctx.strokeText(chars[i], cx, y);
+    else if (mode === 'both') { ctx.strokeText(chars[i], cx, y); ctx.fillText(chars[i], cx, y); }
+    else ctx.fillText(chars[i], cx, y);
+    cx += ws[i] + sp;
+  }
+  ctx.textAlign = prev;
+  return total;
+}
+function trackedWidth(ctx, text, tracking) {
+  const chars = Array.from(text);
+  let t = 0; for (const c of chars) t += ctx.measureText(c).width;
+  return t + tracking * Math.max(0, chars.length - 1);
+}
+
+/* 日本語込みの折り返し（簡易禁則つき）。ASCII単語は分割しない */
+const NO_LINE_START = '、。，．・：；？！ーぁぃぅぇぉっゃゅょゎ々〉」』】）］｝〕”’,.!?)]}';
+const NO_LINE_END = '（［｛〔「『【〈“‘([{';
+function tokenize(text) {
+  const out = [];
+  let buf = '';
+  for (const ch of Array.from(text)) {
+    if (/[A-Za-z0-9'’.\-]/.test(ch)) { buf += ch; }
+    else { if (buf) { out.push(buf); buf = ''; } out.push(ch); }
+  }
+  if (buf) out.push(buf);
+  return out;
+}
+function wrapText(ctx, text, maxW, tracking) {
+  tracking = tracking || 0;
+  const paragraphs = String(text).split('\n');
+  const lines = [];
+  for (const para of paragraphs) {
+    if (para === '') { lines.push(''); continue; }
+    const toks = tokenize(para);
+    let line = '';
+    for (let i = 0; i < toks.length; i++) {
+      const t = toks[i];
+      const test = line + t;
+      if (line && trackedWidth(ctx, test, tracking) > maxW) {
+        // 行頭禁則: 句読点や閉じ括弧が行頭に来ないよう、直前の1文字ごと次行へ送る
+        // （ぶら下げると枠からはみ出すため追い出しで処理する）
+        if (NO_LINE_START.indexOf(t) >= 0 && t.length === 1) {
+          const arr = Array.from(line);
+          if (arr.length > 1) { lines.push(arr.slice(0, -1).join('')); line = arr[arr.length - 1] + t; }
+          else { lines.push(line); line = t; }
+          continue;
+        }
+        // 行末禁則: 行末が開き括弧なら次行へ送る
+        if (NO_LINE_END.indexOf(line[line.length - 1]) >= 0) {
+          const last = line[line.length - 1];
+          lines.push(line.slice(0, -1));
+          line = last + t;
+        } else { lines.push(line); line = t; }
+      } else line = test;
+    }
+    if (line) lines.push(line);
+  }
+  return lines;
+}
+/* 折り返した結果が maxLines・maxH に収まるフォントサイズを探す */
+function fitBlock(ctx, text, weight, family, maxW, maxH, maxSize, lineH, tracking) {
+  let size = maxSize;
+  for (let i = 0; i < 40; i++) {
+    ctx.font = f(weight, size, family);
+    const lines = wrapText(ctx, text, maxW, tracking * size);
+    if (lines.length * size * lineH <= maxH) return { size, lines };
+    size *= 0.94;
+    if (size < 9) break;
+  }
+  ctx.font = f(weight, size, family);
+  return { size, lines: wrapText(ctx, text, maxW, tracking * size) };
+}
+
+/* 縦書き（新聞・書籍表紙用）。約物は回転させて縦組みらしく見せる */
+const VROT = 'ー〜（）「」『』【】〔〕［］｛｝〈〉…‥―－:;=～';
+const VSHIFT = '、。，．';
+function drawVertical(ctx, text, x, y, size, lineH) {
+  const chars = Array.from(text);
+  let cy = y;
+  for (const ch of chars) {
+    if (ch === '\n') continue;
+    ctx.save();
+    if (VROT.indexOf(ch) >= 0) {
+      ctx.translate(x, cy + size * 0.35);
+      ctx.rotate(Math.PI / 2);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(ch, 0, 0);
+    } else if (VSHIFT.indexOf(ch) >= 0) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      ctx.fillText(ch, x + size * 0.34, cy + size * 0.20);
+    } else {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      ctx.fillText(ch, x, cy + size * 0.82);
+    }
+    ctx.restore();
+    cy += size * lineH;
+  }
+  return cy;
+}
+/* 縦書きを列に分けて流し込む（右から左へ） */
+function drawVerticalBlock(ctx, text, right, top, size, lineH, maxH, colGap) {
+  const perCol = Math.max(1, Math.floor(maxH / (size * lineH)));
+  const chars = Array.from(String(text).replace(/\n/g, ''));
+  let x = right, i = 0, cols = 0;
+  while (i < chars.length) {
+    let take = chars.slice(i, i + perCol);
+    // 行頭禁則
+    if (i + perCol < chars.length && NO_LINE_START.indexOf(chars[i + perCol]) >= 0) take.push(chars[i + perCol]);
+    drawVertical(ctx, take.join(''), x, top, size, lineH);
+    i += take.length; x -= size * colGap; cols++;
+    if (cols > 12) break;
+  }
+  return x;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}
+
+/* バーコード風装飾（ダミー） */
+function drawBarcode(ctx, x, y, w, h, seed, label) {
+  const r = rnd(seed);
+  ctx.save();
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = '#111';
+  let cx = x + w * 0.05;
+  const bh = h * 0.72, top = y + h * 0.06;
+  const lim = x + w * 0.95;
+  while (cx < lim) {
+    const bw = 1 + Math.floor(r() * 4);
+    if (r() > 0.32) ctx.fillRect(cx, top, Math.min(bw, lim - cx), bh);
+    cx += bw + 1 + Math.floor(r() * 3);
+  }
+  ctx.font = f(600, h * 0.17, FONT.cond);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(label || '4 912345 678904', x + w / 2, top + bh + h * 0.03);
+  ctx.restore();
+}
+
+/* 紙のグレイン（2D側の仕上げ） */
+function drawGrain(ctx, w, h, amount, seed, size) {
+  const s = size || 3;
+  const gw = Math.ceil(w / s), gh = Math.ceil(h / s);
+  const c = newCanvas(gw, gh);
+  const g = c.getContext('2d');
+  const id = g.createImageData(gw, gh);
+  const r = rnd(seed || 7);
+  for (let i = 0; i < gw * gh; i++) {
+    const v = 128 + (r() - 0.5) * 255;
+    id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = v;
+    id.data[i * 4 + 3] = 255;
+  }
+  g.putImageData(id, 0, 0);
+  ctx.save();
+  ctx.globalAlpha = amount;
+  ctx.globalCompositeOperation = 'overlay';
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(c, 0, 0, w, h);
+  ctx.restore();
+}
+
+/* ビネット */
+function drawVignette(ctx, w, h, strength, color) {
+  const g = ctx.createRadialGradient(w / 2, h * 0.46, w * 0.22, w / 2, h * 0.5, w * 0.78);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, color || `rgba(0,0,0,${strength})`);
+  ctx.save();
+  ctx.globalAlpha = color ? strength : 1;
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+}
+
+/* =========================================================================
+ * [6] 擬似3Dステージ
+ *   各モードは「1枚の絵」を作り、それを日常の風景に置いた1コマとして
+ *   透視投影でレンダリングする。レイヤーの重ね合わせでは出せない
+ *   遠近・被写界深度・陰影を、この共通基盤で担当する。
+ * ====================================================================== */
+
+/* --- 4x4行列（列優先 / GLSLと同じ並び） --- */
+const M4 = {
+  mul(a, b) {
+    const o = new Float32Array(16);
+    for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
+      let s = 0;
+      for (let k = 0; k < 4; k++) s += a[r + k * 4] * b[k + c * 4];
+      o[r + c * 4] = s;
+    }
+    return o;
+  },
+  perspective(fovyDeg, aspect, near, far) {
+    const fo = 1 / Math.tan(fovyDeg * Math.PI / 360);
+    const nf = 1 / (near - far);
+    const o = new Float32Array(16);
+    o[0] = fo / aspect; o[5] = fo; o[10] = (far + near) * nf; o[11] = -1; o[14] = 2 * far * near * nf;
+    return o;
+  },
+  lookAt(eye, at, up) {
+    const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    const norm = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+    const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const z = norm(sub(eye, at)), x = norm(cross(up, z)), y = cross(z, x);
+    return new Float32Array([
+      x[0], y[0], z[0], 0,
+      x[1], y[1], z[1], 0,
+      x[2], y[2], z[2], 0,
+      -dot(x, eye), -dot(y, eye), -dot(z, eye), 1
+    ]);
+  },
+  /* 位置 / 回転(度 XYZ) / 大きさ からモデル行列を作る（T * Ry * Rx * Rz * S） */
+  compose(pos, rot, size) {
+    const d = Math.PI / 180;
+    const cx = Math.cos((rot[0] || 0) * d), sx = Math.sin((rot[0] || 0) * d);
+    const cy = Math.cos((rot[1] || 0) * d), sy = Math.sin((rot[1] || 0) * d);
+    const cz = Math.cos((rot[2] || 0) * d), sz = Math.sin((rot[2] || 0) * d);
+    const R = [
+      [cy * cz + sy * sx * sz, -cy * sz + sy * sx * cz, sy * cx],
+      [cx * sz, cx * cz, -sx],
+      [-sy * cz + cy * sx * sz, sy * sz + cy * sx * cz, cy * cx]
+    ];
+    const o = new Float32Array(16);
+    for (let c = 0; c < 3; c++) for (let r = 0; r < 3; r++) o[r + c * 4] = R[r][c] * size[c];
+    o[12] = pos[0]; o[13] = pos[1]; o[14] = pos[2]; o[15] = 1;
+    return o;
+  }
+};
+
+const VS_STAGE = `#version 300 es
+in vec3 a_pos; in vec2 a_uv; in vec3 a_nrm;
+uniform mat4 u_mvp, u_model, u_view;
+uniform vec2 u_uvScale;
+out vec2 v_uv; out vec3 v_nrm; out float v_viewZ;
+void main(){
+  vec4 wp = u_model * vec4(a_pos, 1.0);
+  v_viewZ = -(u_view * wp).z;
+  v_nrm = mat3(u_model) * a_nrm;
+  v_uv = a_uv * u_uvScale;
+  gl_Position = u_mvp * vec4(a_pos, 1.0);
+}`;
+
+const FS_STAGE = `#version 300 es
+precision highp float;
+in vec2 v_uv; in vec3 v_nrm; in float v_viewZ;
+out vec4 fragColor;
+uniform sampler2D u_tex;
+uniform vec3 u_color, u_light;
+uniform float u_useTex, u_unlit, u_alpha, u_mode, u_focus, u_dofScale, u_ambient;
+void main(){
+  if (u_mode > 0.5){                                  // CoC（被写界深度マスク）
+    float coc = clamp(abs(v_viewZ - u_focus) * u_dofScale, 0.0, 1.0);
+    fragColor = vec4(coc, coc, coc, 1.0); return;
+  }
+  vec4 base = u_useTex > 0.5 ? texture(u_tex, v_uv) : vec4(u_color, 1.0);
+  if (base.a < 0.004) discard;
+  float sh = 1.0;
+  if (u_unlit < 0.5){
+    vec3 n = normalize(v_nrm);
+    vec3 l = normalize(u_light);
+    sh = u_ambient + (1.0 - u_ambient) * max(dot(n, l), 0.0);
+    sh += 0.06 * max(n.y, 0.0);
+  }
+  fragColor = vec4(base.rgb * sh, base.a * u_alpha);
+}`;
+
+/* 単位立方体（-0.5〜0.5）。面ごとに6頂点、順は TOP/BOTTOM/FRONT/BACK/RIGHT/LEFT。
+ * 各面のUVは、その面を正面から見たときに絵が正立するよう割り当てている。 */
+const BOX_GEOMETRY = (() => {
+  const v = [];
+  const quad = (pts, n, uvs) => {
+    const idx = [0, 1, 2, 0, 2, 3];
+    for (const i of idx) v.push(pts[i][0], pts[i][1], pts[i][2], uvs[i][0], uvs[i][1], n[0], n[1], n[2]);
+  };
+  const U = [[0, 0], [1, 0], [1, 1], [0, 1]];
+  const h = 0.5;
+  quad([[-h, h, h], [h, h, h], [h, h, -h], [-h, h, -h]], [0, 1, 0], U);      // TOP   (奥=上)
+  quad([[-h, -h, -h], [h, -h, -h], [h, -h, h], [-h, -h, h]], [0, -1, 0], U); // BOTTOM
+  quad([[-h, -h, h], [h, -h, h], [h, h, h], [-h, h, h]], [0, 0, 1], U);      // FRONT (上=上)
+  quad([[h, -h, -h], [-h, -h, -h], [-h, h, -h], [h, h, -h]], [0, 0, -1], U); // BACK
+  quad([[h, -h, h], [h, -h, -h], [h, h, -h], [h, h, h]], [1, 0, 0], U);      // RIGHT
+  quad([[-h, -h, -h], [-h, -h, h], [-h, h, h], [-h, h, -h]], [-1, 0, 0], U); // LEFT
+  return new Float32Array(v);
+})();
+
+/* 単位平面（XZ, y=0, 法線+Y）。UVはTOP面と同じ向き */
+const PLANE_GEOMETRY = new Float32Array([
+  -0.5, 0, 0.5, 0, 0, 0, 1, 0,
+  0.5, 0, 0.5, 1, 0, 0, 1, 0,
+  0.5, 0, -0.5, 1, 1, 0, 1, 0,
+  -0.5, 0, 0.5, 0, 0, 0, 1, 0,
+  0.5, 0, -0.5, 1, 1, 0, 1, 0,
+  -0.5, 0, -0.5, 0, 1, 0, 1, 0
+]);
+
+const Stage3D = (() => {
+  const FACE = { TOP: 0, BOTTOM: 6, FRONT: 12, BACK: 18, RIGHT: 24, LEFT: 30 };
+  const ALL = [FACE.TOP, FACE.BOTTOM, FACE.FRONT, FACE.BACK, FACE.RIGHT, FACE.LEFT];
+
+  /* opt: { W, H, clear, light, ambient, camera:{eye,at,fov,focus,dofScale,blur}, draw(api) }
+   * draw() はカラーパスとCoCパスで2回呼ばれる。api.mode が 0 のときだけ
+   * 半透明（影など）を描くと、被写界深度マスクが濁らない。 */
+  function render(ctx, opt) {
+    const gl = GLX.gl;
+    if (!gl) return false;
+    const W = opt.W, H = opt.H;
+    // WebGLにはFBO描画へのMSAAが無いので、2倍で描いてから縮小して
+    // ポリゴンの縁と細い文字のジャギーを均す（スーパーサンプリング）
+    const lim = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), gl.getParameter(gl.MAX_RENDERBUFFER_SIZE));
+    const ss = (Math.max(W, H) * 2 <= lim) ? 2 : 1;
+    const RW = W * ss, RH = H * ss;
+    GLX.resize(RW, RH);
+    const trash = [];
+    const prog = GLX.program('stage', VS_STAGE, FS_STAGE);
+
+    const boxBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, boxBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, BOX_GEOMETRY, gl.STATIC_DRAW);
+    const planeBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, planeBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, PLANE_GEOMETRY, gl.STATIC_DRAW);
+
+    const cam = opt.camera;
+    const view = M4.lookAt(cam.eye, cam.at, [0, 1, 0]);
+    const proj = M4.perspective(cam.fov || 30, 1, 0.05, 300);
+    const vp = M4.mul(proj, view);
+    const common = {
+      u_view: view,
+      u_light: opt.light || [0.40, 0.86, 0.45],
+      u_ambient: opt.ambient === undefined ? 0.42 : opt.ambient,
+      u_focus: cam.focus,
+      u_dofScale: cam.dofScale === undefined ? 0.4 : cam.dofScale
+    };
+
+    let mode = 0, bound = null;
+    const bind = (buf) => {
+      if (bound === buf) return;
+      bound = buf;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 32, 0);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 32, 12);
+      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 3, gl.FLOAT, false, 32, 20);
+    };
+    const draw = (m, u, first, count) => {
+      GLX.setUniforms(prog, Object.assign({
+        u_mvp: M4.mul(vp, m), u_model: m, u_mode: mode,
+        u_useTex: 0, u_unlit: 0, u_alpha: 1, u_color: [1, 1, 1], u_uvScale: [1, 1]
+      }, common, u));
+      gl.drawArrays(gl.TRIANGLES, first, count);
+    };
+
+    const api = {
+      get mode() { return mode; },
+      /* 半透明（影・光）を描くときは true → 描き終えたら false */
+      blend(on) {
+        if (on) {
+          gl.enable(gl.BLEND);
+          gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+          gl.depthMask(false);
+        } else { gl.disable(gl.BLEND); gl.depthMask(true); }
+      },
+      /* pos/rot/size の直方体。tex を渡すと face 面だけテクスチャ、他は edge 色 */
+      box(pos, rot, size, o) {
+        o = o || {};
+        bind(boxBuf);
+        const m = M4.compose(pos, rot, size);
+        const shared = {
+          u_alpha: o.alpha === undefined ? 1 : o.alpha,
+          u_unlit: o.unlit ? 1 : 0
+        };
+        if (o.tex) {
+          const fi = o.face === undefined ? FACE.TOP : o.face;
+          draw(m, Object.assign({ u_useTex: 1, u_tex: { tex: o.tex } }, shared), fi, 6);
+          const edge = o.edge || [0.94, 0.92, 0.86];
+          for (const fa of ALL) if (fa !== fi) draw(m, Object.assign({ u_color: edge }, shared), fa, 6);
+        } else {
+          draw(m, Object.assign({ u_color: o.color || [0.8, 0.8, 0.8] }, shared), 0, 36);
+        }
+        return m;
+      },
+      /* XZ平面（床・壁・影）。rot で立てれば壁になる */
+      quad(pos, rot, size, o) {
+        o = o || {};
+        bind(planeBuf);
+        const m = M4.compose(pos, rot, [size[0], 1, size[1]]);
+        draw(m, {
+          u_useTex: o.tex ? 1 : 0, u_tex: o.tex ? { tex: o.tex } : undefined,
+          u_color: o.color || [1, 1, 1], u_alpha: o.alpha === undefined ? 1 : o.alpha,
+          u_unlit: o.unlit ? 1 : 0, u_uvScale: o.uvScale || [1, 1]
+        }, 0, 6);
+        return m;
+      }
+    };
+
+    const runPass = (target, m) => {
+      mode = m; bound = null;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, target.fb);
+      gl.viewport(0, 0, target.w, target.h);
+      gl.useProgram(prog);
+      gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true);
+      gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
+      const c = m === 1 ? [1, 1, 1] : (opt.clear || [0.09, 0.09, 0.10]);
+      gl.clearColor(c[0], c[1], c[2], 1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      opt.draw(api);
+      gl.disable(gl.BLEND); gl.depthMask(true);
+    };
+
+    // カラーは等倍以上で、CoCマスクとぼかしは等倍で十分（どちらも滑らかなため）
+    const fC = GLX.fbo(RW, RH, true), fZ = GLX.fbo(W, H, true),
+          fA = GLX.fbo(W, H), fB = GLX.fbo(W, H);
+    trash.push(fC, fZ, fA, fB);
+    runPass(fC, 0);
+    runPass(fZ, 1);
+
+    const pBlur = GLX.program('blur', VS_FULL, FS_BLUR);
+    const pDof = GLX.program('dof', VS_FULL, FS_DOF);
+    const br = cam.blur === undefined ? 8 : cam.blur;
+    GLX.pass(pBlur, { u_tex: { tex: fC.tex }, u_dir: [1, 0], u_radius: br }, fA);
+    GLX.pass(pBlur, { u_tex: { tex: fA.tex }, u_dir: [0, 1], u_radius: br }, fB);
+    GLX.pass(pDof, { u_sharp: { tex: fC.tex }, u_blur: { tex: fB.tex }, u_coc: { tex: fZ.tex } }, null);
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(GLX.canvas, 0, 0, W, H);
+    gl.deleteBuffer(boxBuf); gl.deleteBuffer(planeBuf);
+    GLX.dispose(trash);
+    return true;
+  }
+
+  return { render, FACE };
+})();
+
+/* --- チョーク画（黒板モード用）: 輪郭と明部を白い擦れとして抜き出す --- */
+const FS_CHALK = FS_HEAD + GLSL_NOISE + `
+uniform sampler2D u_tex;
+uniform float u_strength;
+uniform float u_tint;      // 0 = 白チョークのみ / 1 = 元の色を残した色チョーク
+uniform vec3 u_chalk;
+float lm(vec2 uv){ vec4 c = texture(u_tex, uv); return luma(c.rgb) * c.a; }
+void main(){
+  vec2 px = 1.0 / u_res;
+  float gx = lm(v_uv+px*vec2(-1,-1)) + 2.0*lm(v_uv+px*vec2(-1,0)) + lm(v_uv+px*vec2(-1,1))
+           - lm(v_uv+px*vec2( 1,-1)) - 2.0*lm(v_uv+px*vec2( 1,0)) - lm(v_uv+px*vec2( 1,1));
+  float gy = lm(v_uv+px*vec2(-1,-1)) + 2.0*lm(v_uv+px*vec2(0,-1)) + lm(v_uv+px*vec2(1,-1))
+           - lm(v_uv+px*vec2(-1, 1)) - 2.0*lm(v_uv+px*vec2(0, 1)) - lm(v_uv+px*vec2(1, 1));
+  float edge = smoothstep(0.06, 0.34, length(vec2(gx, gy)));
+  vec4 src = texture(u_tex, v_uv);
+  // 色チョークのときは面を広めに拾って、色が乗る範囲を増やす
+  float lo   = mix(0.60, 0.16, u_tint);
+  float amt  = mix(0.42, 0.66, u_tint);
+  float body = smoothstep(lo, 1.0, luma(src.rgb)) * src.a * amt;
+  float a = clamp(edge * 1.7 + body, 0.0, 1.0);
+  // チョークのかすれ
+  a *= 0.45 + 0.55 * fbm(v_uv * u_res * 0.05);
+  a *= 0.72 + 0.28 * hash12(v_uv * u_res * 0.9);
+
+  // パステル化：彩度をやや落として白に寄せると、粉っぽいチョークの発色になる
+  vec3 pastel = mix(vec3(luma(src.rgb)), src.rgb, 0.92);
+  pastel = mix(pastel, vec3(1.0), 0.28);
+  // 被写体の外側（＝輪郭線）は白チョークのままにする
+  vec3 col = mix(u_chalk, pastel, u_tint * smoothstep(0.02, 0.45, src.a));
+  col = mix(col, col * 0.86, edge * u_tint * 0.6);
+  fragColor = vec4(col, clamp(a * u_strength, 0.0, 1.0));
+}`;
+
+function fxChalk(src, w, h, opt) {
+  opt = opt || {};
+  return glRun(w, h, (gl, trash) => {
+    const p = GLX.program('chalk', VS_FULL, FS_CHALK);
+    const tex = GLX.texture(src); trash.push(tex);
+    gl.clearColor(0, 0, 0, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, w, h);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    GLX.pass(p, {
+      u_tex: { tex }, u_strength: opt.strength === undefined ? 1.0 : opt.strength,
+      u_tint: opt.tint ? 1.0 : 0.0,
+      u_chalk: opt.chalk || [0.93, 0.95, 0.92]
+    }, null);
+    gl.disable(gl.BLEND);
+  });
+}
+
+/* 影用の柔らかい円形グラデーション（全モード共通） */
+let _shadowTex = null;
+function shadowTexture() {
+  if (_shadowTex) return _shadowTex;
+  const S = 256;
+  const c = newCanvas(S, S);
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(S / 2, S / 2, 4, S / 2, S / 2, S / 2);
+  g.addColorStop(0, 'rgba(16,12,8,0.75)');
+  g.addColorStop(0.45, 'rgba(16,12,8,0.40)');
+  g.addColorStop(1, 'rgba(16,12,8,0)');
+  x.fillStyle = g; x.fillRect(0, 0, S, S);
+  _shadowTex = c;
+  return c;
+}
+/* 素材テクスチャ: 木目・金属・紙などの平面用 */
+function surfaceTexture(kind) {
+  const S = 512;
+  const c = newCanvas(S, S);
+  const x = c.getContext('2d');
+  const r = rnd(kind.length * 977 + 13);
+  const pal = {
+    wood: ['#7a5c42', '#95765a', '#5f4632'],
+    pale: ['#cfd3d8', '#e6e9ed', '#b6bcc4'],
+    metal: ['#8e959d', '#aab1b9', '#727981'],
+    carpet: ['#4a1f27', '#5d2a33', '#331419'],
+    stone: ['#9a9791', '#b3b0a9', '#7e7b76']
+  }[kind] || ['#888', '#aaa', '#666'];
+  const g = x.createLinearGradient(0, 0, 0, S);
+  g.addColorStop(0, pal[1]); g.addColorStop(0.5, pal[0]); g.addColorStop(1, pal[2]);
+  x.fillStyle = g; x.fillRect(0, 0, S, S);
+  if (kind === 'wood') {
+    for (let i = 0; i < 240; i++) {
+      x.globalAlpha = 0.05 + r() * 0.1;
+      x.fillStyle = r() > 0.5 ? '#e8d4bd' : '#3a2b1e';
+      x.fillRect(0, r() * S, S, 0.7 + r() * 2.2);
+    }
+  } else if (kind === 'stone') {
+    x.globalAlpha = 0.5; x.strokeStyle = '#6f6c67'; x.lineWidth = 2;
+    for (let i = 0; i <= 4; i++) { x.beginPath(); x.moveTo(0, i * S / 4); x.lineTo(S, i * S / 4); x.stroke(); }
+    for (let i = 0; i <= 4; i++) { x.beginPath(); x.moveTo(i * S / 4, 0); x.lineTo(i * S / 4, S); x.stroke(); }
+  } else if (kind === 'carpet') {
+    for (let i = 0; i < 900; i++) {
+      x.globalAlpha = 0.05 + r() * 0.12;
+      x.fillStyle = r() > 0.5 ? '#8a3f4c' : '#250f13';
+      x.fillRect(r() * S, r() * S, 3 + r() * 8, 3 + r() * 8);
+    }
+  }
+  x.globalAlpha = 1;
+  drawGrain(x, S, S, 0.09, 9, 2);
+  return c;
+}
+
+/* --- 映画館ロビーの質感。画角を絞るぶん、面ごとに作り込んだ絵を用意する --- */
+function lobbyTextures() {
+  const T = {};
+
+  // 壁：暖色の塗り壁に縦の目地とムラ
+  {
+    const S = 512, c = newCanvas(S, S), x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, 0, S);
+    g.addColorStop(0, '#55414a'); g.addColorStop(0.55, '#453440'); g.addColorStop(1, '#392b35');
+    x.fillStyle = g; x.fillRect(0, 0, S, S);
+    const r = rnd(311);
+    for (let i = 0; i < 70; i++) {
+      x.globalAlpha = 0.02 + r() * 0.05;
+      x.fillStyle = r() > 0.5 ? '#7b6270' : '#261c24';
+      x.beginPath();
+      x.ellipse(r() * S, r() * S, 40 + r() * 130, 18 + r() * 70, r() * 3, 0, Math.PI * 2);
+      x.fill();
+    }
+    x.globalAlpha = 1;
+    for (let i = 0; i <= 4; i++) {
+      const px = i * S / 4;
+      x.fillStyle = 'rgba(22,15,20,0.5)'; x.fillRect(px - 1.5, 0, 3, S);
+      x.fillStyle = 'rgba(150,128,142,0.16)'; x.fillRect(px + 2, 0, 1.5, S);
+    }
+    drawGrain(x, S, S, 0.10, 3, 2);
+    T.wall = c;
+  }
+
+  // カウンター前面：縦framed の木パネル
+  {
+    const W2 = 1024, H2 = 256, c = newCanvas(W2, H2), x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, 0, H2);
+    g.addColorStop(0, '#6b4b34'); g.addColorStop(0.5, '#563a27'); g.addColorStop(1, '#40291b');
+    x.fillStyle = g; x.fillRect(0, 0, W2, H2);
+    const r = rnd(707);
+    for (let i = 0; i < 320; i++) {
+      x.globalAlpha = 0.05 + r() * 0.10;
+      x.fillStyle = r() > 0.5 ? '#c39a6d' : '#2c1c11';
+      x.fillRect(0, r() * H2, W2, 0.6 + r() * 1.8);
+    }
+    x.globalAlpha = 1;
+    // 鏡板（框組み）
+    const panels = 6, pw = W2 / panels;
+    for (let i = 0; i < panels; i++) {
+      const px = i * pw;
+      x.strokeStyle = 'rgba(24,15,9,0.75)'; x.lineWidth = 5;
+      x.strokeRect(px + 16, 22, pw - 32, H2 - 62);
+      x.strokeStyle = 'rgba(196,160,120,0.22)'; x.lineWidth = 2;
+      x.strokeRect(px + 20, 26, pw - 40, H2 - 70);
+    }
+    // 上端の見切りと下端の幅木
+    x.fillStyle = 'rgba(214,180,132,0.30)'; x.fillRect(0, 0, W2, 7);
+    x.fillStyle = 'rgba(18,11,7,0.7)'; x.fillRect(0, H2 - 26, W2, 26);
+    drawGrain(x, W2, H2, 0.08, 9, 2);
+    T.counterFront = c;
+  }
+
+  // カウンター天板：黒御影風
+  {
+    const S = 512, c = newCanvas(S, S), x = c.getContext('2d');
+    x.fillStyle = '#2a2528'; x.fillRect(0, 0, S, S);
+    const r = rnd(4242);
+    for (let i = 0; i < 5200; i++) {
+      x.globalAlpha = 0.10 + r() * 0.45;
+      const t = r();
+      x.fillStyle = t > 0.72 ? '#cfc6bd' : (t > 0.4 ? '#7d7278' : '#161316');
+      const s2 = 0.8 + r() * 2.6;
+      x.fillRect(r() * S, r() * S, s2, s2 * (0.6 + r() * 0.8));
+    }
+    x.globalAlpha = 1;
+    drawGrain(x, S, S, 0.06, 11, 2);
+    T.counterTop = c;
+  }
+
+
+
+  // ポスター下の「上映中」プレート
+  {
+    const W2 = 384, H2 = 96, c = newCanvas(W2, H2), x = c.getContext('2d');
+    x.fillStyle = '#171319'; x.fillRect(0, 0, W2, H2);
+    x.strokeStyle = 'rgba(216,186,124,0.8)'; x.lineWidth = 3;
+    x.strokeRect(6, 6, W2 - 12, H2 - 12);
+    x.fillStyle = '#e6cd93';
+    x.font = f(600, 30, FONT.cond);
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    drawTracked(x, 'NOW SHOWING', W2 / 2, H2 / 2, 5, 'center');
+    x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+    T.plaque = c;
+  }
+
+  // 壁を照らす光だまり
+  {
+    const S = 512, c = newCanvas(S, S), x = c.getContext('2d');
+    const g = x.createRadialGradient(S / 2, S * 0.42, 20, S / 2, S * 0.5, S * 0.5);
+    g.addColorStop(0, 'rgba(255,236,196,0.42)');
+    g.addColorStop(0.5, 'rgba(255,232,188,0.16)');
+    g.addColorStop(1, 'rgba(255,230,185,0)');
+    x.fillStyle = g; x.fillRect(0, 0, S, S);
+    T.glow = c;
+  }
+  return T;
+}
+
+/* =========================================================================
+ * [7] モード定義
+ *   各モードは art() で1枚の絵を作り、render() でそれを日常の風景に置く。
+ * ====================================================================== */
+
+const MODES = [];
+
+/* 同じ絵を色違いに見せる（周囲に並ぶ「別の号・別の本」用） */
+function tintCopy(src, deg, bright) {
+  const c = newCanvas(src.width, src.height);
+  const x = c.getContext('2d');
+  try { x.filter = `hue-rotate(${deg}deg) brightness(${bright === undefined ? 1 : bright})`; } catch (e) { }
+  x.drawImage(src, 0, 0);
+  x.filter = 'none';
+  return c;
+}
+/* 名前のない「その他の紙面」（売店に並ぶ他紙など） */
+function dummyPage(w, h, seed, paper, ink) {
+  const c = newCanvas(w, h);
+  const x = c.getContext('2d');
+  const r = rnd(seed);
+  x.fillStyle = paper; x.fillRect(0, 0, w, h);
+  x.fillStyle = ink;
+  x.fillRect(w * 0.08, h * 0.05, w * 0.84, h * 0.075);
+  x.globalAlpha = 0.7;
+  x.fillRect(w * 0.08, h * 0.15, w * 0.84, h * 0.055);
+  x.globalAlpha = 0.18;
+  x.fillRect(w * 0.08, h * 0.24, w * 0.42, h * 0.30);
+  x.globalAlpha = 0.30;
+  let y = h * 0.24;
+  while (y < h * 0.93) {
+    x.fillRect(w * 0.54, y, w * (0.20 + r() * 0.18), h * 0.012);
+    y += h * 0.028;
+  }
+  y = h * 0.58;
+  while (y < h * 0.93) {
+    x.fillRect(w * 0.08, y, w * (0.20 + r() * 0.20), h * 0.012);
+    y += h * 0.028;
+  }
+  x.globalAlpha = 1;
+  drawGrain(x, w, h, 0.06, seed, 2);
+  return c;
+}
+
+/* -------------------------------------------------------------------------
+ * 7.1 雑誌風 — 書店の平台に平積みされた最新号を、やや俯瞰で
+ * ---------------------------------------------------------------------- */
+MODES.push({
+  id: 'magazine',
+  name: '雑誌風',
+  heavy: true,
+  fields: [
+    { key: 'title', label: 'ロゴタイトル', type: 'text', def: 'OHAYO', placeholder: 'OHAYO' },
+    { key: 'issue', label: '号数', type: 'text', def: 'VOL.42 / MORNING ISSUE', placeholder: 'VOL.42' },
+    { key: 'date', label: '日付', type: 'text', def: '2026 SEPTEMBER', placeholder: '2026 SEPTEMBER' },
+    { key: 'lines', label: '特集見出し', type: 'textarea', rows: 4, def: '今日も\n世界一かわいい\nおはよう', placeholder: '今日も' },
+    { key: 'sub', label: '小コピー', type: 'text', def: 'MORNING PORTRAIT ISSUE', placeholder: 'MORNING PORTRAIT ISSUE' }
+  ],
+
+  art(env) {
+    const W = 800, H = 1130;
+    const c = newCanvas(W, H);
+    const x = c.getContext('2d');
+    const { img, meta, v } = env;
+    const [ah, as] = meta.accentHsl;
+    const accent = hsl(ah, clamp(as * 1.1, 0.55, 0.92), 0.48);
+    const deep = hsl(ah + 6, clamp(as * 0.9, 0.35, 0.8), 0.16);
+
+    const g = x.createLinearGradient(0, 0, W * 0.35, H);
+    g.addColorStop(0, hsl(ah + 12, clamp(as * 0.45, 0.10, 0.4), 0.94));
+    g.addColorStop(0.55, hsl(ah, clamp(as * 0.55, 0.12, 0.45), 0.86));
+    g.addColorStop(1, hsl(ah - 14, clamp(as * 0.6, 0.14, 0.5), 0.76));
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+
+    // 発行情報
+    x.fillStyle = deep; x.textBaseline = 'alphabetic';
+    x.font = f(600, 19, FONT.cond);
+    drawTracked(x, (v.issue || '').toUpperCase(), 40, 60, 2.4, 'left');
+    drawTracked(x, (v.date || '').toUpperCase(), W - 40, 60, 2.4, 'right');
+    x.globalAlpha = 0.5; x.fillRect(40, 74, W - 80, 1.5); x.globalAlpha = 1;
+
+    // 立ち絵 → その前に巨大ロゴ
+    const p = place(env, { x: 60, y: 185, w: W - 120, h: H - 185 },
+      { fit: 'contain', anchorY: 1, anchorX: 0.5 });
+    x.save();
+    x.shadowColor = 'rgba(0,0,0,0.20)'; x.shadowBlur = 26; x.shadowOffsetY = 8;
+    try { x.filter = 'contrast(1.06) saturate(1.10)'; } catch (e) { }
+    x.drawImage(img, p.x, p.y, p.w, p.h);
+    x.restore(); x.filter = 'none';
+
+    const logo = (v.title || 'OHAYO').toUpperCase();
+    const ls = fitSize(x, logo, 400, FONT.logo, W - 56, 300, 40, -0.018);
+    x.font = f(400, ls, FONT.logo);
+    x.save();
+    x.shadowColor = 'rgba(0,0,0,0.30)'; x.shadowBlur = 22; x.shadowOffsetY = 6;
+    x.fillStyle = '#fff';
+    drawTracked(x, logo, W / 2, 96 + ls * 0.76, -ls * 0.018, 'center');
+    x.restore();
+
+    // 特集見出し
+    const raw = String(v.lines || '').split('\n').map(t => t.trim()).filter(Boolean);
+    const half = Math.ceil(raw.length / 2);
+    const line = (t, px, py, size, align, first) => {
+      x.save();
+      x.shadowColor = 'rgba(0,0,0,0.40)'; x.shadowBlur = 14; x.shadowOffsetY = 2;
+      x.font = f(900, size, FONT.sans);
+      x.fillStyle = first ? accent : '#fff';
+      if (first) { x.strokeStyle = '#fff'; x.lineWidth = size * 0.07; x.lineJoin = 'round'; }
+      const w = trackedWidth(x, t, size * 0.01);
+      drawTracked(x, t, px, py, size * 0.01, align, first ? 'both' : undefined);
+      x.restore();
+      x.save();
+      x.globalAlpha = 0.85; x.fillStyle = first ? accent : '#fff';
+      x.fillRect(align === 'right' ? px - w : px, py + size * 0.24, w, Math.max(2, size * 0.055));
+      x.restore();
+    };
+    let y = 415;
+    raw.slice(0, half).slice(0, 3).forEach((t, i) => {
+      const s = fitSize(x, t, 900, FONT.sans, W - 80, i === 0 ? 78 : 53, 18, 0.01);
+      line(t, 40, y, s, 'left', i === 0); y += s * 1.48;
+    });
+    let y2 = 700;
+    raw.slice(half).slice(0, 2).forEach((t) => {
+      const s = fitSize(x, t, 900, FONT.sans, W - 80, 53, 16, 0.01);
+      line(t, W - 40, y2, s, 'right', false); y2 += s * 1.48;
+    });
+
+    // 特集バッジ・バーコード
+    x.save();
+    x.fillStyle = accent;
+    x.beginPath(); x.arc(76, H - 154, 36, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#fff'; x.font = f(900, 21, FONT.sans);
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText('特集', 76, H - 152);
+    x.restore(); x.textBaseline = 'alphabetic';
+
+    drawBarcode(x, W - 168, H - 96, 128, 64, 1234, '4 912345 678904');
+    x.save();
+    x.font = f(600, 13, FONT.cond); x.fillStyle = deep; x.textAlign = 'right';
+    drawTracked(x, String(v.sub || '').toUpperCase(), W - 178, H - 68, 1.4, 'right');
+    x.restore();
+
+    x.save();
+    x.strokeStyle = 'rgba(255,255,255,0.5)'; x.lineWidth = 2;
+    x.strokeRect(16, 16, W - 32, H - 32);
+    x.restore();
+    drawGrain(x, W, H, 0.04, 21, 3);
+    return c;
+  },
+
+  render(ctx, env) {
+    const W = env.W, H = env.H;
+    const art = this.art(env);
+    if (!GLX.available()) { ctx.drawImage(art, (W - H * art.width / art.height) / 2, 0, H * art.width / art.height, H); return; }
+
+    const covers = [GLX.texture(art), GLX.texture(tintCopy(art, 26, 0.98)), GLX.texture(tintCopy(art, -24, 1.02))];
+    const table = GLX.texture(surfaceTexture('pale'), { repeat: true });
+    const shadow = GLX.texture(shadowTexture());
+    const trash = [...covers, table, shadow];
+
+    // 雑誌1冊 = 幅1.10 x 奥行1.55 x 厚み0.032
+    const MW = 1.10, MD = 1.55, MT = 0.032;
+    const r = rnd(20260903);
+    const stacks = [];
+    const PX = 1.26, PZ = 1.74, COLS = 5, ROWS = 5, HC = 2, HR = 0;
+    for (let ci = 0; ci < COLS; ci++) for (let zi = 0; zi < ROWS; zi++) {
+      const hero = (ci === HC && zi === HR);
+      const n = hero ? 9 : 4 + Math.floor(r() * 6);
+      stacks.push({
+        x: (ci - (COLS - 1) / 2) * PX, z: 1.30 - zi * PZ, n, hero,
+        tex: covers[(ci * 2 + zi) % covers.length],
+        jitter: hero ? 0.012 : 0.05, seed: r()
+      });
+    }
+    const hero = stacks[HC * ROWS + HR];
+    const heroTop = MT * hero.n;
+    const fp = [hero.x, heroTop, hero.z];
+    // 書籍より俯瞰を強くしつつ、一冊が画面に収まる距離まで引く
+    const eye = [fp[0] + 1.18, fp[1] + 3.34, fp[2] + 1.84];
+
+    Stage3D.render(ctx, {
+      W, H, clear: [0.16, 0.16, 0.17], ambient: 0.50,
+      light: [0.32, 0.90, 0.40],
+      camera: {
+        eye, at: [fp[0] + 0.02, fp[1] - 0.10, fp[2] + 0.02], fov: 30,
+        focus: Math.hypot(eye[0] - fp[0], eye[1] - fp[1], eye[2] - fp[2]),
+        dofScale: 0.55, blur: 9
+      },
+      draw(api) {
+        api.quad([0, 0, -2.0], [0, 0, 0], [16, 16], { tex: table, uvScale: [6, 6] });
+        if (api.mode === 0) {
+          api.blend(true);
+          for (const st of stacks) {
+            api.quad([st.x, 0.004, st.z + 0.05], [0, 0, 0], [MW * 1.30, MD * 1.30], { tex: shadow, unlit: true });
+          }
+          api.blend(false);
+        }
+        for (const st of stacks) {
+          const rr = rnd(Math.floor(st.seed * 100000) + 7);
+          for (let i = 0; i < st.n; i++) {
+            api.box(
+              [st.x + (rr() - 0.5) * st.jitter, MT * (i + 0.5), st.z + (rr() - 0.5) * st.jitter],
+              [0, (rr() - 0.5) * 5, 0], [MW, MT, MD],
+              { tex: st.tex, face: Stage3D.FACE.TOP, edge: [0.97, 0.96, 0.93] }
+            );
+          }
+        }
+      }
+    });
+    GLX.dispose(trash);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const lg = ctx.createRadialGradient(W * 0.42, H * 0.08, 20, W * 0.5, H * 0.35, W * 0.85);
+    lg.addColorStop(0, 'rgba(255,246,226,0.20)');
+    lg.addColorStop(1, 'rgba(255,246,226,0)');
+    ctx.fillStyle = lg; ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    drawVignette(ctx, W, H, 0.42);
+    drawGrain(ctx, W, H, 0.04, 33, 2);
+  }
+});
+
+/* -------------------------------------------------------------------------
+ * 7.2 新聞風 — 駅の売店。菓子より一段上の棚に他紙とまとめて平置き
+ * ---------------------------------------------------------------------- */
+MODES.push({
+  id: 'newspaper',
+  name: '新聞風',
+  heavy: true,
+  fields: [
+    { key: 'paper', label: '題字', type: 'text', def: '朝報', placeholder: '朝報' },
+    { key: 'date', label: '発行日', type: 'text', def: '令和八年九月二日（水）朝刊', placeholder: '令和八年九月二日' },
+    { key: 'head', label: 'メイン見出し', type: 'text', def: '本日も 早起き成功', placeholder: '本日も 早起き成功' },
+    { key: 'subs', label: 'サブ見出し', type: 'textarea', rows: 2, def: '三日連続の快挙\n本人「眠い」', placeholder: '三日連続の快挙' },
+    {
+      key: 'experts', label: '識者コメント', type: 'textarea', rows: 3,
+      def: '朝活大学教授 早起 太郎氏｜えらい。とてもえらい。この調子で明日も起きてほしい。\n睡眠評論家 布団 愛子氏｜正直、二度寝しても誰も責めない。だが今日は起きた。',
+      placeholder: '朝活大学教授 早起 太郎氏｜えらい。'
+    },
+    { key: 'caption', label: 'キャプション', type: 'text', def: '＝午前七時、自室にて（写真）', placeholder: '＝午前七時、自室にて' }
+  ],
+
+  art(env) {
+    const W = 880, H = 1180;
+    const c = newCanvas(W, H);
+    const x = c.getContext('2d');
+    const { img, meta, v } = env;
+    const PAPER = '#f2eee3', INK = '#16161a', RED = '#a41d1d';
+    const M = 34;
+    const hbY = 152, hbH = 158;
+
+    x.fillStyle = PAPER; x.fillRect(0, 0, W, H);
+
+    // 題字
+    x.fillStyle = INK; x.textBaseline = 'alphabetic';
+    const t = v.paper || '朝報';
+    const ts = fitSize(x, t, 900, FONT.serif, 340, 78, 30, 0.06);
+    x.font = f(900, ts, FONT.serif);
+    drawTracked(x, t, W / 2, 96, ts * 0.06, 'center');
+    x.save();
+    x.fillStyle = RED; roundRect(x, M, 42, 88, 40, 5); x.fill();
+    x.fillStyle = PAPER; x.font = f(900, 23, FONT.serif);
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    drawTracked(x, '号外', M + 44, 63, 3, 'center');
+    x.restore(); x.textBaseline = 'alphabetic';
+    x.font = f(400, 15, FONT.serif); x.fillStyle = INK; x.textAlign = 'right';
+    x.fillText(v.date || '', W - M, 70);
+    x.globalAlpha = 0.7; x.fillText('おはようVtuber新聞社', W - M, 92); x.globalAlpha = 1;
+    x.textAlign = 'left';
+    x.fillStyle = INK;
+    x.fillRect(M, 116, W - M * 2, 3);
+    x.fillRect(M, 124, W - M * 2, 1.2);
+
+    // 写真（網点）
+    const px0 = M, py0 = hbY, pw = 406, ph = 600;
+    const scene = newCanvas(pw, ph);
+    const sx = scene.getContext('2d');
+    sx.fillStyle = '#e9e6dd'; sx.fillRect(0, 0, pw, ph);
+    const sp = place(env, { x: 10, y: 16, w: pw - 20, h: ph - 46 },
+      { fit: 'contain', anchorY: 1, anchorX: 0.5 });
+    sx.drawImage(img, sp.x, sp.y, sp.w, sp.h);
+    x.drawImage(fxNewsprint(scene, pw, ph, { dot: 3.6 }) || scene, px0, py0);
+
+    x.save();
+    x.beginPath(); x.rect(0, 0, W, hbY); x.rect(0, hbY + hbH, W, H - hbY - hbH); x.clip();
+    x.strokeStyle = INK; x.lineWidth = 1.5;
+    x.strokeRect(px0 + 0.75, py0 + 0.75, pw - 1.5, ph - 1.5);
+    x.restore();
+
+    x.save();
+    x.fillStyle = 'rgba(20,20,22,0.88)';
+    x.fillRect(px0, py0 + ph - 38, pw, 38);
+    x.fillStyle = PAPER; x.font = f(400, 16, FONT.serif); x.textBaseline = 'middle';
+    x.fillText((wrapText(x, v.caption || '', pw - 24, 0)[0]) || '', px0 + 12, py0 + ph - 19);
+    x.restore(); x.textBaseline = 'alphabetic';
+
+    // 見出し帯
+    x.save();
+    x.fillStyle = 'rgba(242,238,227,0.62)';
+    x.fillRect(M, hbY, W - M * 2, hbH);
+    x.fillStyle = INK;
+    x.fillRect(M, hbY, W - M * 2, 2.5);
+    x.fillRect(M, hbY + hbH - 2.5, W - M * 2, 2.5);
+    x.restore();
+    const hb = fitBlock(x, v.head || '', 900, FONT.serif, W - M * 2 - 30, hbH - 30, 94, 1.16, 0.04);
+    x.font = f(900, hb.size, FONT.serif);
+    let hy = hbY + (hbH - hb.lines.length * hb.size * 1.16) / 2 + hb.size * 0.88;
+    x.save();
+    x.strokeStyle = PAPER; x.lineWidth = hb.size * 0.14; x.lineJoin = 'round';
+    x.fillStyle = INK;
+    for (const ln of hb.lines) { drawTracked(x, ln, W / 2, hy, hb.size * 0.04, 'center', 'both'); hy += hb.size * 1.16; }
+    x.restore();
+
+    // 識者コメント
+    const colX = px0 + pw + 16, colW = 690 - colX;
+    const boxTop = hbY + hbH + 18, boxBottom = py0 + ph;
+    const experts = String(v.experts || '').split('\n').map(s => s.trim()).filter(Boolean).slice(0, 2);
+    const boxH = (boxBottom - boxTop - (experts.length - 1) * 14) / Math.max(experts.length, 1);
+    experts.forEach((linee, i) => {
+      const sep = linee.indexOf('｜') >= 0 ? '｜' : (linee.indexOf('|') >= 0 ? '|' : '：');
+      const idx = linee.indexOf(sep);
+      const who = idx >= 0 ? linee.slice(0, idx).trim() : '識者';
+      const say = idx >= 0 ? linee.slice(idx + 1).trim() : linee;
+      const by = boxTop + i * (boxH + 14);
+      x.save();
+      x.fillStyle = 'rgba(22,22,26,0.05)'; x.fillRect(colX, by, colW, boxH);
+      x.strokeStyle = INK; x.lineWidth = 1.2;
+      x.strokeRect(colX + 0.6, by + 0.6, colW - 1.2, boxH - 1.2);
+      x.fillStyle = INK; x.fillRect(colX, by, colW, 28);
+      x.fillStyle = PAPER; x.font = f(700, 16, FONT.serif); x.textBaseline = 'middle';
+      x.fillText('識　者　の　声', colX + 10, by + 15);
+      x.restore(); x.textBaseline = 'alphabetic';
+      x.fillStyle = INK; x.font = f(700, 17, FONT.serif);
+      let ty = by + 54;
+      for (const l of wrapText(x, who, colW - 20, 0).slice(0, 2)) { x.fillText(l, colX + 10, ty); ty += 21; }
+      x.fillStyle = 'rgba(22,22,26,0.35)'; x.fillRect(colX + 10, ty - 9, colW - 20, 1); ty += 10;
+      const sb = fitBlock(x, '「' + say + '」', 400, FONT.serif, colW - 26, boxH - (ty - by) - 12, 19, 1.5, 0);
+      x.fillStyle = INK; x.font = f(400, sb.size, FONT.serif);
+      for (const l of sb.lines) { x.fillText(l, colX + 10, ty + sb.size * 0.8); ty += sb.size * 1.5; }
+    });
+
+    // 縦書きサブ見出し
+    x.save();
+    x.fillStyle = INK; x.fillRect(700, boxTop, 1.5, boxBottom - boxTop);
+    let vx = W - M - 22;
+    String(v.subs || '').split('\n').map(s => s.trim()).filter(Boolean).slice(0, 2).forEach((s, i) => {
+      const size = i === 0 ? 38 : 28;
+      x.font = f(900, size, FONT.serif);
+      x.fillStyle = i === 0 ? INK : 'rgba(22,22,26,0.82)';
+      vx = drawVerticalBlock(x, s, vx, boxTop + 8, size, 1.06, boxBottom - boxTop - 16, 1.28) - size * 0.5;
+    });
+    x.restore();
+
+    // 下部の段組み
+    const bt = py0 + ph + 20, bh = H - bt - 56;
+    const cols = 3, gap = 18, cw = (W - M * 2 - gap * (cols - 1)) / cols;
+    const rr = rnd(99);
+    for (let ci = 0; ci < cols; ci++) {
+      const cx = M + ci * (cw + gap);
+      x.fillStyle = INK; x.font = f(700, 17, FONT.serif);
+      x.fillText(['きょうの起床', 'おはよう経済', '気象'][ci], cx, bt + 16);
+      x.fillStyle = 'rgba(22,22,26,0.28)'; x.fillRect(cx, bt + 25, cw, 1.2);
+      let yy = bt + 40;
+      while (yy < bt + bh - 6) {
+        x.fillStyle = 'rgba(22,22,26,0.30)';
+        x.fillRect(cx, yy, cw * (0.72 + rr() * 0.28), 6);
+        yy += 15;
+      }
+      if (ci < cols - 1) { x.fillStyle = 'rgba(22,22,26,0.25)'; x.fillRect(cx + cw + gap / 2, bt + 6, 1.2, bh - 12); }
+    }
+    x.fillStyle = INK; x.fillRect(M, H - 44, W - M * 2, 1.2);
+    x.font = f(400, 14, FONT.serif); x.fillStyle = 'rgba(22,22,26,0.72)';
+    x.fillText('※この紙面はフィクションです', M, H - 24);
+    x.textAlign = 'right'; x.fillText('おはようVtuber新聞社', W - M, H - 24); x.textAlign = 'left';
+
+    drawGrain(x, W, H, 0.06, 5, 2);
+    return c;
+  },
+
+  render(ctx, env) {
+    const W = env.W, H = env.H;
+    const art = this.art(env);
+    if (!GLX.available()) { ctx.drawImage(art, (W - H * art.width / art.height) / 2, 0, H * art.width / art.height, H); return; }
+
+    const NW = 2.14, ND = 2.87, NT = 0.013;   // 折らずに平置きした紙面
+    const heroTex = GLX.texture(art);
+    const otherA = GLX.texture(dummyPage(440, 590, 31, '#efe9dc', '#22232a'));
+    const otherB = GLX.texture(dummyPage(440, 590, 77, '#f0ece1', '#2a1f2a'));
+    const shelf = GLX.texture(surfaceTexture('metal'), { repeat: true });
+    const floor = GLX.texture(surfaceTexture('stone'), { repeat: true });
+    const shadow = GLX.texture(shadowTexture());
+    const trash = [heroTex, otherA, otherB, shelf, floor, shadow];
+
+    const SHELF_Y = 0.92, SHELF_T = 0.12;
+    const top = SHELF_Y + SHELF_T / 2;
+    const papers = [
+      { x: 0.00, z: 0.55, n: 9, tex: heroTex, hero: true },
+      { x: -2.30, z: 0.30, n: 7, tex: otherA },
+      { x: 2.30, z: 0.36, n: 8, tex: otherB },
+      { x: -1.16, z: -2.35, n: 6, tex: otherB },
+      { x: 1.16, z: -2.30, n: 7, tex: otherA },
+      { x: -3.45, z: -2.40, n: 5, tex: heroTex },
+      { x: 3.45, z: -2.44, n: 6, tex: otherA }
+    ];
+    const hero = papers[0];
+    const fp = [hero.x, top + NT * hero.n, hero.z];
+    const eye = [fp[0] + 0.92, fp[1] + 4.00, fp[2] + 2.21];
+
+    const snackCols = [[0.86, 0.24, 0.20], [0.95, 0.72, 0.16], [0.22, 0.48, 0.78],
+                       [0.90, 0.45, 0.14], [0.36, 0.62, 0.32], [0.82, 0.30, 0.52]];
+    const rs = rnd(515);
+
+    Stage3D.render(ctx, {
+      W, H, clear: [0.12, 0.13, 0.15], ambient: 0.46,
+      light: [0.25, 0.90, 0.36],
+      camera: {
+        eye, at: [fp[0], fp[1] - 0.02, fp[2] + 0.02], fov: 32,
+        focus: Math.hypot(eye[0] - fp[0], eye[1] - fp[1], eye[2] - fp[2]),
+        dofScale: 0.30, blur: 12
+      },
+      draw(api) {
+        api.quad([0, 0, 0], [0, 0, 0], [24, 24], { tex: floor, uvScale: [7, 7] });
+        // 背面のパネル
+        api.box([0, 1.7, -4.2], [0, 0, 0], [16, 3.6, 0.16], { color: [0.28, 0.30, 0.34] });
+        // 上段の棚板（新聞はここ）
+        api.box([0, SHELF_Y, -0.6], [0, 0, 0], [11, SHELF_T, 5.2], { tex: shelf, face: Stage3D.FACE.TOP, edge: [0.42, 0.45, 0.49] });
+        // 下段：菓子類。新聞はここより一段上に置かれている
+        api.box([0, 0.55, 2.35], [0, 0, 0], [11, 0.12, 1.3],
+          { tex: shelf, face: Stage3D.FACE.TOP, edge: [0.42, 0.45, 0.49] });
+        for (let i = 0; i < 17; i++) {
+          const bx = -3.4 + i * 0.42 + (rs() - 0.5) * 0.06;
+          const bh2 = 0.24 + rs() * 0.16;
+          api.box([bx, 0.61 + bh2 / 2, 2.02 + (rs() - 0.5) * 0.16], [0, (rs() - 0.5) * 18, 0],
+            [0.33, bh2, 0.15], { color: snackCols[i % snackCols.length] });
+        }
+        for (let i = 0; i < 15; i++) {
+          const bx = -3.2 + i * 0.46 + (rs() - 0.5) * 0.08;
+          const bh2 = 0.28 + rs() * 0.16;
+          api.box([bx, 0.61 + bh2 / 2, 2.62 + (rs() - 0.5) * 0.16], [0, (rs() - 0.5) * 20, 0],
+            [0.36, bh2, 0.17], { color: snackCols[(i + 3) % snackCols.length] });
+        }
+        if (api.mode === 0) {
+          api.blend(true);
+          for (const p of papers) {
+            api.quad([p.x, top + 0.004, p.z + 0.05], [0, 0, 0], [NW * 1.16, ND * 1.16], { tex: shadow, unlit: true });
+          }
+          api.blend(false);
+        }
+        for (const p of papers) {
+          const rr = rnd(Math.round(p.x * 100) + p.n * 17 + 3);
+          for (let i = 0; i < p.n; i++) {
+            api.box([p.x + (rr() - 0.5) * (p.hero ? 0.02 : 0.07), top + NT * (i + 0.5), p.z + (rr() - 0.5) * (p.hero ? 0.02 : 0.07)],
+              [0, (rr() - 0.5) * (p.hero ? 2.5 : 6), 0], [NW, NT, ND],
+              { tex: p.tex, face: Stage3D.FACE.TOP, edge: [0.93, 0.91, 0.85] });
+          }
+        }
+      }
+    });
+    GLX.dispose(trash);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const lg = ctx.createLinearGradient(0, 0, 0, H * 0.55);
+    lg.addColorStop(0, 'rgba(210,228,255,0.16)');
+    lg.addColorStop(1, 'rgba(210,228,255,0)');
+    ctx.fillStyle = lg; ctx.fillRect(0, 0, W, H * 0.55);
+    ctx.restore();
+    drawVignette(ctx, W, H, 0.46);
+    drawGrain(ctx, W, H, 0.045, 5, 2);
+  }
+});
+
+/* -------------------------------------------------------------------------
+ * 7.3 RPGタイトル風 — 店頭のゲームソフトラック、面出しされた一番手前の一本
+ * ---------------------------------------------------------------------- */
+MODES.push({
+  id: 'rpg',
+  name: 'RPGタイトル風',
+  heavy: true,
+  fields: [
+    { key: 'title', label: 'タイトルロゴ', type: 'text', def: 'OHAYO VTUBER', placeholder: 'OHAYO VTUBER' },
+    { key: 'sub', label: 'サブタイトル', type: 'text', def: '～めざめの朝～', placeholder: '～めざめの朝～' },
+    { key: 'press', label: '下部テキスト', type: 'text', def: 'PRESS ANY BUTTON TO WAKE UP', placeholder: 'PRESS ANY BUTTON TO WAKE UP' }
+  ],
+
+  art(env) {
+    const W = 760, H = 1120;
+    const { img, meta, v } = env;
+    const [ah, as] = meta.accentHsl;
+
+    // 箱絵：水彩の背景画
+    const scene = newCanvas(W, H);
+    const s = scene.getContext('2d');
+    const bg = s.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, hsl(ah + 190, 0.36, 0.86));
+    bg.addColorStop(0.45, hsl(ah + 150, 0.30, 0.78));
+    bg.addColorStop(1, hsl(ah + 40, 0.34, 0.62));
+    s.fillStyle = bg; s.fillRect(0, 0, W, H);
+    const glow = s.createRadialGradient(W / 2, H * 0.44, 30, W / 2, H * 0.44, W * 0.62);
+    glow.addColorStop(0, 'rgba(255,246,214,0.52)');
+    glow.addColorStop(0.45, 'rgba(255,238,190,0.18)');
+    glow.addColorStop(1, 'rgba(255,235,180,0)');
+    s.fillStyle = glow; s.fillRect(0, 0, W, H);
+    const p = place(env, { x: W * 0.06, y: H * 0.02, w: W * 0.88, h: H * 0.70 },
+      { fit: 'contain', anchorY: 1, anchorX: 0.5 });
+    s.save();
+    s.globalAlpha = 0.9;
+    try { s.filter = 'saturate(0.95) brightness(1.05)'; } catch (e) { }
+    s.drawImage(img, p.x, p.y, p.w, p.h);
+    s.restore(); s.filter = 'none';
+
+    const c = newCanvas(W, H);
+    const x = c.getContext('2d');
+    const painted = fxWatercolor(scene, { w: 720, h: 1060, radius: 5.6, sharpness: 4.5, soften: 0.45 });
+    x.imageSmoothingQuality = 'high';
+    x.drawImage(painted || scene, 0, 0, W, H);
+    x.fillStyle = 'rgba(238,230,208,0.12)'; x.fillRect(0, 0, W, H);
+
+    // 下端は帯のために少しだけ締める
+    const bot = x.createLinearGradient(0, H, 0, H * 0.76);
+    bot.addColorStop(0, 'rgba(18,20,40,0.72)');
+    bot.addColorStop(1, 'rgba(18,20,40,0)');
+    x.fillStyle = bot; x.fillRect(0, H * 0.76, W, H * 0.24);
+    drawVignette(x, W, H, 0.34);
+
+    // タイトルロゴ（白マット・細身）。パッケージの主役なので中央に大きく置く
+    const title = (v.title || 'OHAYO VTUBER').toUpperCase();
+    const trk = 0.06, LW = 400;
+    const ts = fitSize(x, title, LW, FONT.fantasy, W - 64, 152, 24, trk);
+    const baseY = Math.round(H * 0.54 + ts * 0.34);
+    // ロゴ背後の後光（箱絵から文字を分離する）
+    const halo = x.createRadialGradient(W / 2, baseY - ts * 0.32, ts * 0.2, W / 2, baseY - ts * 0.32, W * 0.78);
+    halo.addColorStop(0, 'rgba(20,18,38,0.66)');
+    halo.addColorStop(0.55, 'rgba(20,18,38,0.30)');
+    halo.addColorStop(1, 'rgba(20,18,38,0)');
+    x.fillStyle = halo; x.fillRect(0, 0, W, H);
+    x.font = f(LW, ts, FONT.fantasy);
+    x.textBaseline = 'alphabetic';
+    x.save();
+    x.shadowColor = 'rgba(18,14,30,0.6)'; x.shadowBlur = 18; x.shadowOffsetY = 2;
+    x.fillStyle = '#f7f5ef';
+    drawTracked(x, title, W / 2, baseY, ts * trk, 'center');
+    x.restore();
+    const tw = Math.min(W - 80, trackedWidth(x, title, ts * trk) + ts * 0.3);
+    const rule = (ry, dia) => {
+      const lg = x.createLinearGradient(W / 2 - tw / 2, 0, W / 2 + tw / 2, 0);
+      lg.addColorStop(0, 'rgba(247,245,239,0)');
+      lg.addColorStop(0.5, 'rgba(247,245,239,0.85)');
+      lg.addColorStop(1, 'rgba(247,245,239,0)');
+      x.fillStyle = lg; x.fillRect(W / 2 - tw / 2, ry, tw, 2);
+      x.save(); x.translate(W / 2, ry + 1); x.rotate(Math.PI / 4);
+      x.fillStyle = '#f7f5ef'; x.fillRect(-dia / 2, -dia / 2, dia, dia); x.restore();
+    };
+    rule(baseY - ts * 0.94 - 24, 11);
+    rule(baseY + 34, 13);
+    if (v.sub) {
+      const ss = fitSize(x, v.sub, 700, FONT.serif, W - 140, 36, 12, 0.12);
+      x.font = f(700, ss, FONT.serif);
+      x.save();
+      x.shadowColor = 'rgba(0,0,0,0.7)'; x.shadowBlur = 10;
+      x.fillStyle = '#f2f0ea';
+      drawTracked(x, v.sub, W / 2, baseY + 76 + ss * 0.8, ss * 0.12, 'center');
+      x.restore();
+    }
+    if (v.press) {
+      const ps = fitSize(x, v.press.toUpperCase(), 500, FONT.cond, W - 150, 19, 9, 0.2);
+      x.font = f(500, ps, FONT.cond);
+      x.save(); x.globalAlpha = 0.88; x.fillStyle = '#f7f5ef';
+      drawTracked(x, v.press.toUpperCase(), W / 2, 1006, ps * 0.2, 'center');
+      x.restore();
+    }
+
+    // パッケージらしい上帯と下段（レーティング・発売元）
+    x.fillStyle = hsl(ah + 200, 0.5, 0.22); x.fillRect(0, 0, W, 52);
+    x.fillStyle = 'rgba(255,255,255,0.9)'; x.font = f(600, 17, FONT.cond);
+    drawTracked(x, 'MORNING SOFT', 22, 34, 2.6, 'left');
+    x.textAlign = 'right';
+    drawTracked(x, 'FOR EVERY MORNING', W - 22, 34, 2.2, 'right');
+    x.textAlign = 'left';
+    x.save();
+    x.strokeStyle = 'rgba(247,245,239,0.85)'; x.lineWidth = 2;
+    x.strokeRect(24, 1042, 50, 50);
+    x.fillStyle = 'rgba(247,245,239,0.9)'; x.font = f(900, 30, FONT.cond);
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText('A', 49, 1069);
+    x.restore(); x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+    x.save();
+    x.globalAlpha = 0.72; x.fillStyle = '#f7f5ef'; x.font = f(400, 13, FONT.cond);
+    x.textAlign = 'right';
+    drawTracked(x, '(C) MORNING SOFT / OHAYO VTUBER PROJECT', W - 24, 1074, 1.1, 'right');
+    x.restore(); x.textAlign = 'left';
+    x.save();
+    x.strokeStyle = 'rgba(255,255,255,0.35)'; x.lineWidth = 2;
+    x.strokeRect(9, 61, W - 18, H - 70);
+    x.restore();
+    drawGrain(x, W, H, 0.03, 3, 4);
+    return c;
+  },
+
+  render(ctx, env) {
+    const W = env.W, H = env.H;
+    const art = this.art(env);
+    if (!GLX.available()) { ctx.drawImage(art, (W - H * art.width / art.height) / 2, 0, H * art.width / art.height, H); return; }
+
+    const CW = 0.58, CH = 0.86, CD = 0.062;
+    const heroTex = GLX.texture(art);
+    const shelf = GLX.texture(surfaceTexture('metal'), { repeat: true });
+    const neigh = [
+      GLX.texture(dummyPage(300, 440, 23, '#3a2c4a', '#c8b6e0')),
+      GLX.texture(dummyPage(300, 440, 59, '#22403c', '#a8ccc4'))
+    ];
+    const trash = [heroTex, shelf, ...neigh];
+    const rr = rnd(4649);
+
+    const heroPos = [0, CH / 2 + 0.005, 0.60];
+    const heroRot = [-8, 12, 0];      // 面を手前へ向けて表示面積を稼ぐ
+    const eye = [0.66, 0.95, 2.20];
+    const at = [0.00, 0.45, 0.58];
+
+    Stage3D.render(ctx, {
+      W, H, clear: [0.07, 0.07, 0.08], ambient: 0.58,
+      light: [0.30, 0.88, 0.55],
+      camera: {
+        eye, at, fov: 34,
+        focus: Math.hypot(eye[0] - heroPos[0], eye[1] - heroPos[1], eye[2] - heroPos[2]),
+        dofScale: 1.45, blur: 9
+      },
+      draw(api) {
+        // 什器（棚板・背板・仕切り）
+        api.quad([0, 0, -0.3], [0, 0, 0], [7, 5], { tex: shelf, uvScale: [4, 4] });
+        api.box([0, 1.1, -1.55], [0, 0, 0], [7, 2.4, 0.1], { color: [0.17, 0.18, 0.21] });
+        api.box([0, 1.36, -0.1], [0, 0, 0], [7, 0.08, 2.8], { color: [0.20, 0.21, 0.24] });
+        for (const dx of [-0.40, 0.40]) {
+          api.box([dx, 0.17, 0.05], [0, 0, 0], [0.012, 0.34, 1.0], { color: [0.22, 0.23, 0.27] });
+        }
+        // 隣の面出し（別タイトル）
+        for (let k = 0; k < 2; k++) {
+          const dx = k === 0 ? -0.82 : 0.84;
+          for (let i = 5; i >= 0; i--) {
+            api.box([dx + (rr() - 0.5) * 0.01, CH / 2 + 0.005, 0.55 - i * 0.075],
+              [-8, 12 + (rr() - 0.5) * 3, 0], [CW, CH, CD],
+              i === 0
+                ? { tex: neigh[k], face: Stage3D.FACE.FRONT, edge: [0.16, 0.17, 0.20] }
+                : { color: [0.18, 0.19, 0.23] });
+          }
+        }
+        // 主役：一番外側の一本＋その後ろに同じソフト
+        for (let i = 7; i >= 0; i--) {
+          api.box([heroPos[0] + (rr() - 0.5) * 0.008, heroPos[1], heroPos[2] - i * 0.075],
+            [heroRot[0], heroRot[1] + (rr() - 0.5) * 2, 0], [CW, CH, CD],
+            i === 0
+              ? { tex: heroTex, face: Stage3D.FACE.FRONT, edge: [0.16, 0.17, 0.20] }
+              : { color: [0.19, 0.20, 0.24] });
+        }
+        // 棚の縁に立てた値札
+        api.box([-0.02, 0.06, 1.08], [-8, 12, 0], [0.22, 0.10, 0.005], { color: [0.90, 0.89, 0.85] });
+      }
+    });
+    GLX.dispose(trash);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const lg = ctx.createRadialGradient(W * 0.46, H * 0.05, 20, W * 0.5, H * 0.4, W * 0.8);
+    lg.addColorStop(0, 'rgba(255,240,205,0.22)');
+    lg.addColorStop(1, 'rgba(255,240,205,0)');
+    ctx.fillStyle = lg; ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    drawVignette(ctx, W, H, 0.52);
+    drawGrain(ctx, W, H, 0.04, 7, 2);
+  }
+});
+
+/* -------------------------------------------------------------------------
+ * 7.4 映画ポスター風 — 映画館の廊下、ライトボックスに収まった一幕
+ * ---------------------------------------------------------------------- */
+MODES.push({
+  id: 'poster',
+  name: '映画ポスター風',
+  heavy: true,
+  fields: [
+    { key: 'catch', label: 'キャッチコピー', type: 'text', def: 'その朝、\n世界はまだ眠っていた。', placeholder: 'その朝、世界はまだ眠っていた。' },
+    { key: 'title', label: 'タイトルロゴ', type: 'text', def: 'OHAYO', placeholder: 'OHAYO' },
+    { key: 'release', label: '公開日', type: 'text', def: '毎朝 7:00 全世界同時配信', placeholder: '毎朝 7:00 全世界同時配信' },
+    {
+      key: 'credits', label: 'クレジット', type: 'textarea', rows: 3,
+      def: 'DIRECTED BY MORNING ALARM   STARRING YOU   MUSIC BY BIRDS OUTSIDE\nPRODUCED BY TWO CUPS OF COFFEE   A MORNING PICTURES RELEASE',
+      placeholder: 'DIRECTED BY ...'
+    }
+  ],
+
+  art(env) {
+    const W = 780, H = 1155;
+    const { img, meta, v } = env;
+    const [ah, as] = meta.accentHsl;
+
+    const scene = newCanvas(W, H);
+    const s = scene.getContext('2d');
+    const bg = s.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#1a1a1e');
+    bg.addColorStop(0.42, '#6e6e74');
+    bg.addColorStop(0.72, '#3a3a41');
+    bg.addColorStop(1, '#1c1c22');
+    s.fillStyle = bg; s.fillRect(0, 0, W, H);
+    const spot = s.createRadialGradient(W * 0.5, H * 0.36, 16, W * 0.5, H * 0.46, W * 0.72);
+    spot.addColorStop(0, 'rgba(255,255,255,0.72)');
+    spot.addColorStop(0.55, 'rgba(190,190,196,0.26)');
+    spot.addColorStop(1, 'rgba(0,0,0,0)');
+    s.fillStyle = spot; s.fillRect(0, 0, W, H);
+    const p = place(env, { x: W * 0.08, y: H * 0.06, w: W * 0.84, h: H * 0.86 },
+      { fit: 'contain', anchorY: 1, anchorX: 0.5 });
+    s.save();
+    try { s.filter = 'contrast(1.18) saturate(0.9)'; } catch (e) { }
+    s.drawImage(img, p.x, p.y, p.w, p.h);
+    s.restore(); s.filter = 'none';
+
+    const accRgb = (() => {
+      const q = newCanvas(1, 1).getContext('2d');
+      q.fillStyle = hsl(ah, clamp(as * 1.15, 0.55, 0.95), 0.42);
+      q.fillRect(0, 0, 1, 1);
+      const d = q.getImageData(0, 0, 1, 1).data;
+      return [d[0] / 255, d[1] / 255, d[2] / 255];
+    })();
+
+    const c = newCanvas(W, H);
+    const x = c.getContext('2d');
+    const gek = fxGekiga(scene, {
+      w: 760, h: 1125, levels: 5.0, edge: 0.95, dot: 3.4, grain: 0.045, duotone: 1.0,
+      dark: [0.045, 0.042, 0.055], light: [0.955, 0.945, 0.915], accent: accRgb
+    });
+    x.imageSmoothingQuality = 'high';
+    x.drawImage(gek || scene, 0, 0, W, H);
+
+    const tg = x.createLinearGradient(0, 0, 0, H * 0.32);
+    tg.addColorStop(0, 'rgba(8,8,11,0.68)'); tg.addColorStop(1, 'rgba(8,8,11,0)');
+    x.fillStyle = tg; x.fillRect(0, 0, W, H * 0.32);
+    const bg2 = x.createLinearGradient(0, H, 0, H * 0.58);
+    bg2.addColorStop(0, 'rgba(8,8,11,0.84)');
+    bg2.addColorStop(0.45, 'rgba(8,8,11,0.38)');
+    bg2.addColorStop(1, 'rgba(8,8,11,0)');
+    x.fillStyle = bg2; x.fillRect(0, H * 0.58, W, H * 0.42);
+    drawVignette(x, W, H, 0.30);
+
+    x.textBaseline = 'alphabetic';
+    const cb = fitBlock(x, v.catch || '', 900, FONT.serif, W - 110, 200, 62, 1.36, 0.05);
+    x.font = f(900, cb.size, FONT.serif);
+    x.save();
+    x.shadowColor = 'rgba(0,0,0,0.85)'; x.shadowBlur = 16;
+    x.fillStyle = '#f2efe8';
+    let cy = 92 + cb.size * 0.9;
+    for (const ln of cb.lines) { drawTracked(x, ln, W / 2, cy, cb.size * 0.05, 'center'); cy += cb.size * 1.36; }
+    x.restore();
+
+    const title = (v.title || '').toUpperCase();
+    if (title) {
+      const ts = fitSize(x, title, 900, FONT.poster, W - 110, 128, 30, 0.02);
+      const ty = H - 208;
+      x.font = f(900, ts, FONT.poster);
+      x.save();
+      x.shadowColor = 'rgba(0,0,0,0.9)'; x.shadowBlur = 22; x.shadowOffsetY = 3;
+      const tg2 = x.createLinearGradient(0, ty - ts, 0, ty + ts * 0.1);
+      tg2.addColorStop(0, '#ffffff'); tg2.addColorStop(0.62, '#e8e3d8');
+      tg2.addColorStop(1, hsl(ah, 0.55, 0.62));
+      x.fillStyle = tg2;
+      drawTracked(x, title, W / 2, ty, ts * 0.02, 'center');
+      x.restore();
+      const tw = trackedWidth(x, title, ts * 0.02);
+      const gapw = tw / 2 + 18;
+      if (gapw < W / 2 - 46) {
+        x.save(); x.fillStyle = 'rgba(240,236,226,0.5)';
+        const ry = ty - ts * 0.30;
+        x.fillRect(46, ry, W / 2 - gapw - 46, 1.6);
+        x.fillRect(W / 2 + gapw, ry, W / 2 - gapw - 46, 1.6);
+        x.restore();
+      }
+    }
+    if (v.release) {
+      const rs = fitSize(x, v.release, 700, FONT.serif, W - 160, 28, 12, 0.16);
+      x.font = f(700, rs, FONT.serif);
+      x.save();
+      x.shadowColor = 'rgba(0,0,0,0.8)'; x.shadowBlur = 10;
+      x.fillStyle = hsl(ah, 0.62, 0.70);
+      drawTracked(x, v.release, W / 2, H - 152, rs * 0.16, 'center');
+      x.restore();
+    }
+    x.save();
+    x.fillStyle = 'rgba(232,228,218,0.8)';
+    let ccy = H - 114;
+    for (const ln of String(v.credits || '').split('\n').map(t => t.trim()).filter(Boolean).slice(0, 4)) {
+      const cs = fitSize(x, ln, 400, FONT.cond, W - 90, 15, 7, 0.14);
+      x.font = f(400, cs, FONT.cond);
+      drawTracked(x, ln.toUpperCase(), W / 2, ccy, cs * 0.14, 'center');
+      ccy += cs * 1.8;
+    }
+    x.restore();
+    x.save();
+    x.strokeStyle = 'rgba(236,232,222,0.3)'; x.lineWidth = 1.6;
+    x.strokeRect(16, 16, W - 32, H - 32);
+    x.restore();
+    drawGrain(x, W, H, 0.048, 11, 2);
+    return c;
+  },
+
+  render(ctx, env) {
+    const W = env.W, H = env.H;
+    const art = this.art(env);
+    if (!GLX.available()) { ctx.drawImage(art, (W - H * art.width / art.height) / 2, 0, H * art.width / art.height, H); return; }
+
+    const L = lobbyTextures();
+    const heroTex = GLX.texture(art);
+    const carpet = GLX.texture(surfaceTexture('carpet'), { repeat: true });
+    const texWall = GLX.texture(L.wall, { repeat: true });
+    const texFront = GLX.texture(L.counterFront);
+    const texTop = GLX.texture(L.counterTop, { repeat: true });
+    const texPlaque = GLX.texture(L.plaque);
+    const texGlow = GLX.texture(L.glow);
+    const trash = [heroTex, carpet, texWall, texFront, texTop, texPlaque, texGlow];
+
+    // 開場待ちのロビー。カウンター越しに、高い位置のポスターを見上げる
+    const PW = 1.05, PH = 1.55;
+    const posterPos = [0, 2.15, -1.53];
+    const WALL_Z = -1.65;          // 壁の手前面
+    const CTOP = 1.05;             // カウンター天板の高さ
+    const eye = [0.34, 1.15, 1.35];
+    const at = [0, 1.95, -1.52];
+    const F = Stage3D.FACE;
+
+    Stage3D.render(ctx, {
+      W, H, clear: [0.16, 0.13, 0.15], ambient: 0.60,
+      light: [0.26, 0.84, 0.62],
+      camera: {
+        eye, at, fov: 43,
+        focus: Math.hypot(eye[0] - posterPos[0], eye[1] - posterPos[1], eye[2] - posterPos[2]),
+        dofScale: 1.15, blur: 11
+      },
+      draw(api) {
+        api.quad([0, 0, 0.4], [0, 0, 0], [14, 14], { tex: carpet, uvScale: [5, 5] });
+
+        // 壁（塗り壁）と、腰の見切り・回り縁
+        api.box([0, 2.3, WALL_Z - 0.11], [0, 0, 0], [12, 4.6, 0.22],
+          { tex: texWall, face: F.FRONT, edge: [0.20, 0.16, 0.19], uvScale: [3, 1.2] });
+        api.box([0, 1.60, WALL_Z + 0.02], [0, 0, 0], [12, 0.075, 0.045], { color: [0.52, 0.42, 0.44] });
+        api.box([0, 1.545, WALL_Z + 0.015], [0, 0, 0], [12, 0.035, 0.035], { color: [0.30, 0.23, 0.26] });
+        api.box([0, 3.12, WALL_Z + 0.03], [0, 0, 0], [12, 0.11, 0.06], { color: [0.46, 0.37, 0.40] });
+        api.box([0, 3.34, -0.5], [0, 0, 0], [12, 0.14, 3.4], { color: [0.15, 0.13, 0.15] });
+        for (const px of [-1.9, 0, 1.9]) {
+          api.box([px, 3.23, -0.6], [0, 0, 0], [1.4, 0.05, 0.30], { color: [1.0, 0.94, 0.80], unlit: true });
+        }
+
+        // ポスターを照らす光だまり（壁の上に重ねる）
+        if (api.mode === 0) {
+          api.blend(true);
+          api.quad([0, 2.20, WALL_Z + 0.005], [90, 0, 0], [3.0, 3.0], { tex: texGlow, unlit: true });
+          api.blend(false);
+        }
+
+        // 壁付け照明
+        for (const px of [-1.02, 1.02]) {
+          api.box([px, 2.32, WALL_Z + 0.05], [0, 0, 0], [0.10, 0.30, 0.09], { color: [0.17, 0.14, 0.15] });
+          api.box([px, 2.32, WALL_Z + 0.10], [0, 0, 0], [0.07, 0.20, 0.03], { color: [1.0, 0.90, 0.70], unlit: true });
+        }
+
+        // カウンター（框組みの前板・黒御影の天板・真鍮の見切り）
+        api.box([0, CTOP / 2, -1.05], [0, 0, 0], [5.6, CTOP, 0.86],
+          { tex: texFront, face: F.FRONT, edge: [0.30, 0.21, 0.14] });
+        api.box([0, CTOP + 0.025, -1.05], [0, 0, 0], [5.8, 0.05, 0.96],
+          { tex: texTop, face: F.TOP, edge: [0.16, 0.14, 0.15], uvScale: [4, 1] });
+        api.box([0, CTOP - 0.01, -0.585], [0, 0, 0], [5.8, 0.022, 0.02], { color: [0.78, 0.62, 0.32] });
+        api.box([0, 0.055, -1.14], [0, 0, 0], [5.4, 0.11, 0.66], { color: [0.14, 0.10, 0.08] });
+
+        // 「NOW SHOWING」プレート
+        api.box([0, 1.26, WALL_Z + 0.03], [0, 0, 0], [0.66, 0.16, 0.03],
+          { tex: texPlaque, face: F.FRONT, edge: [0.12, 0.10, 0.12] });
+
+        // ポスター：外枠 → マット → 紙面
+        api.box([posterPos[0], posterPos[1], posterPos[2] - 0.055], [6, 0, 0],
+          [PW + 0.26, PH + 0.26, 0.05], { color: [0.99, 0.96, 0.88], unlit: true });
+        api.box([posterPos[0], posterPos[1], posterPos[2] - 0.03], [6, 0, 0],
+          [PW + 0.20, PH + 0.20, 0.045], { color: [0.13, 0.11, 0.13] });
+        api.box([posterPos[0], posterPos[1], posterPos[2] - 0.012], [6, 0, 0],
+          [PW + 0.09, PH + 0.09, 0.035], { color: [0.86, 0.83, 0.76] });
+        api.box(posterPos, [6, 0, 0], [PW, PH, 0.03],
+          { tex: heroTex, face: F.FRONT, edge: [0.13, 0.11, 0.13], unlit: true });
+      }
+    });
+    GLX.dispose(trash);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const lg = ctx.createRadialGradient(W * 0.5, H * 0.30, 40, W * 0.5, H * 0.42, W * 0.78);
+    lg.addColorStop(0, 'rgba(255,236,196,0.20)');
+    lg.addColorStop(1, 'rgba(255,236,196,0)');
+    ctx.fillStyle = lg; ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    drawVignette(ctx, W, H, 0.34);
+    drawGrain(ctx, W, H, 0.045, 11, 2);
+  }
+});
+
+/* -------------------------------------------------------------------------
+ * 7.5 書籍平積み風 — 書店の平台、敷き詰められた新刊の一冊にピント
+ * ---------------------------------------------------------------------- */
+MODES.push({
+  id: 'books',
+  name: '書籍平積み風',
+  heavy: true,
+  fields: [
+    { key: 'title', label: '書籍タイトル', type: 'text', def: 'おはようの作法', placeholder: 'おはようの作法' },
+    { key: 'author', label: '著者名', type: 'text', def: '朝比奈 ひかり', placeholder: '朝比奈 ひかり' },
+    { key: 'obi', label: '帯コピー', type: 'text', def: '全人類、\n起きろ。', placeholder: '全人類、起きろ。' },
+    { key: 'obiSub', label: '帯の煽り文句', type: 'textarea', rows: 2, def: '発売即重版　三度寝派も涙した朝の一冊\n「読むと目が覚める」と話題', placeholder: '発売即重版' }
+  ],
+
+  art(env, hueShift) {
+    const CW = 704, CH = 1000;
+    const c = newCanvas(CW, CH);
+    const x = c.getContext('2d');
+    const { img, meta, v } = env;
+    const [ah, as] = meta.accentHsl;
+    const h = ah + (hueShift || 0);
+
+    const g = x.createLinearGradient(0, 0, CW * 0.4, CH);
+    g.addColorStop(0, hsl(h + 16, clamp(as * 0.6, 0.18, 0.5), 0.93));
+    g.addColorStop(0.6, hsl(h, clamp(as * 0.7, 0.2, 0.55), 0.82));
+    g.addColorStop(1, hsl(h - 18, clamp(as * 0.8, 0.25, 0.6), 0.66));
+    x.fillStyle = g; x.fillRect(0, 0, CW, CH);
+
+    const OBI_TOP = CH * 0.70;
+    const p = place(env, { x: CW * 0.06, y: CH * 0.05, w: CW * 0.88, h: OBI_TOP - CH * 0.05 + 30 },
+      { fit: 'contain', anchorY: 1, anchorX: 0.52 });
+    x.save();
+    x.shadowColor = 'rgba(0,0,0,0.18)'; x.shadowBlur = 24; x.shadowOffsetY = 8;
+    x.drawImage(img, p.x, p.y, p.w, p.h);
+    x.restore();
+
+    const ink = hsl(h + 200, 0.30, 0.13);
+    x.fillStyle = ink;
+    const tsize = clamp(CW * 0.115, 40, 84);
+    x.font = f(900, tsize, FONT.serif);
+    x.save();
+    x.shadowColor = 'rgba(255,255,255,0.75)'; x.shadowBlur = 12;
+    drawVerticalBlock(x, v.title || '', CW - 58, 46, tsize, 1.04, OBI_TOP - 90, 1.3);
+    x.restore();
+    x.font = f(700, tsize * 0.44, FONT.serif);
+    x.fillStyle = 'rgba(20,20,26,0.85)';
+    x.save();
+    x.shadowColor = 'rgba(255,255,255,0.7)'; x.shadowBlur = 10;
+    drawVertical(x, v.author || '', 62, 56, tsize * 0.44, 1.08);
+    x.restore();
+
+    const obiH = CH - OBI_TOP;
+    const hn = ((h % 360) + 360) % 360;
+    const obiCol = hsl((hn < 30 || hn > 330) ? 218 : 354, 0.62, 0.32);
+    x.fillStyle = obiCol; x.fillRect(0, OBI_TOP, CW, obiH);
+    x.fillStyle = 'rgba(255,255,255,0.85)'; x.fillRect(0, OBI_TOP, CW, 3);
+    x.fillStyle = 'rgba(0,0,0,0.22)'; x.fillRect(0, OBI_TOP + 3, CW, 6);
+
+    const ob = fitBlock(x, v.obi || '', 900, FONT.serif, CW - 56, obiH * 0.56, obiH * 0.34, 1.14, 0.03);
+    x.fillStyle = '#fff8e8'; x.font = f(900, ob.size, FONT.serif);
+    x.textBaseline = 'alphabetic';
+    let oy = OBI_TOP + 34 + ob.size * 0.85;
+    for (const ln of ob.lines) { drawTracked(x, ln, CW / 2, oy, ob.size * 0.03, 'center'); oy += ob.size * 1.14; }
+
+    const subs = String(v.obiSub || '').split('\n').map(t => t.trim()).filter(Boolean).slice(0, 3);
+    x.fillStyle = 'rgba(255,246,230,0.92)';
+    let sy = Math.min(oy + 6, CH - 26 - subs.length * 30);
+    for (const ln of subs) {
+      const ss = fitSize(x, ln, 700, FONT.sans, CW - 60, 27, 12, 0.02);
+      x.font = f(700, ss, FONT.sans);
+      drawTracked(x, ln, CW / 2, sy + ss, ss * 0.02, 'center');
+      sy += ss * 1.5;
+    }
+    x.fillStyle = 'rgba(255,255,255,0.5)';
+    x.fillRect(26, OBI_TOP + 20, 3, obiH - 40);
+    x.fillRect(CW - 29, OBI_TOP + 20, 3, obiH - 40);
+    drawGrain(x, CW, CH, 0.05, 61, 2);
+    return c;
+  },
+
+  render(ctx, env) {
+    const W = env.W, H = env.H;
+    const cover = this.art(env, 0);
+    if (!GLX.available()) {
+      const cw = W * 0.62, ch = cw * (cover.height / cover.width);
+      ctx.fillStyle = '#2b2118'; ctx.fillRect(0, 0, W, H);
+      ctx.drawImage(cover, (W - cw) / 2, (H - ch) / 2, cw, ch);
+      return;
+    }
+    const covers = [GLX.texture(cover), GLX.texture(this.art(env, 22)), GLX.texture(this.art(env, -20))];
+    const table = GLX.texture(surfaceTexture('wood'), { repeat: true });
+    const shadow = GLX.texture(shadowTexture());
+    const trash = [...covers, table, shadow];
+
+    const BW = 1.10, BT = 0.15, BD = 1.56;
+    const r = rnd(20260902);
+    const stacks = [];
+    const PX = 1.19, PZ = 1.66, COLS = 7, ROWS = 8, HC = 3, HR = 1;
+    for (let ci = 0; ci < COLS; ci++) for (let zi = 0; zi < ROWS; zi++) {
+      const hero = (ci === HC && zi === HR);
+      stacks.push({
+        x: (ci - (COLS - 1) / 2) * PX, z: 1.45 - zi * PZ,
+        n: hero ? 5 : 2 + Math.floor(r() * 3),
+        tex: covers[(ci * 2 + zi) % covers.length],
+        jitter: hero ? 0.015 : 0.05, seed: r(), hero
+      });
+    }
+    const hero = stacks[HC * ROWS + HR];
+    const fp = [hero.x, BT * hero.n, hero.z];
+    const eye = [fp[0] + 2.04, fp[1] + 2.44, fp[2] + 2.64];
+
+    Stage3D.render(ctx, {
+      W, H, clear: [0.09, 0.07, 0.06], ambient: 0.38,
+      light: [0.42, 0.86, 0.52],
+      camera: {
+        eye, at: [fp[0] + 0.10, fp[1] - 0.16, fp[2] + 0.05], fov: 30,
+        focus: Math.hypot(eye[0] - fp[0], eye[1] - fp[1], eye[2] - fp[2]),
+        dofScale: 0.55, blur: 8
+      },
+      draw(api) {
+        api.quad([0, 0, -2.6], [0, 0, 0], [14, 14], { tex: table, uvScale: [7, 7] });
+        if (api.mode === 0) {
+          api.blend(true);
+          for (const st of stacks) {
+            api.quad([st.x, 0.004, st.z + 0.05], [0, 0, 0], [BW * 1.22, BD * 1.42], { tex: shadow, unlit: true });
+          }
+          api.blend(false);
+        }
+        for (const st of stacks) {
+          const rr = rnd(Math.floor(st.seed * 100000) + 5);
+          for (let i = 0; i < st.n; i++) {
+            api.box([st.x + (rr() - 0.5) * st.jitter, BT * (i + 0.5), st.z + (rr() - 0.5) * st.jitter],
+              [0, (rr() - 0.5) * 5, 0], [BW, BT, BD],
+              { tex: st.tex, face: Stage3D.FACE.TOP, edge: [0.94, 0.92, 0.86] });
+          }
+        }
+      }
+    });
+    GLX.dispose(trash);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const lg = ctx.createRadialGradient(W * 0.5, H * 0.16, 20, W * 0.5, H * 0.3, W * 0.8);
+    lg.addColorStop(0, 'rgba(255,232,190,0.20)');
+    lg.addColorStop(1, 'rgba(255,232,190,0)');
+    ctx.fillStyle = lg; ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    drawVignette(ctx, W, H, 0.48);
+    drawGrain(ctx, W, H, 0.05, 33, 2);
+  }
+});
+
+/* -------------------------------------------------------------------------
+ * 7.6 喫茶店の黒板 — 街角の店先、入口の前に置かれたA型看板
+ * ---------------------------------------------------------------------- */
+MODES.push({
+  id: 'chalkboard',
+  name: '喫茶店の黒板',
+  heavy: true,
+  fields: [
+    { key: 'shop', label: '店名', type: 'text', def: 'CAFE OHAYO', placeholder: 'CAFE OHAYO' },
+    { key: 'head', label: '見出し', type: 'text', def: '本日のおすすめ', placeholder: '本日のおすすめ' },
+    {
+      key: 'menu', label: 'メニュー', type: 'textarea', rows: 4,
+      def: 'モーニングセット｜¥680\nおはようブレンド｜¥450\n目覚めのトースト｜¥380',
+      placeholder: 'モーニングセット｜¥680'
+    },
+    { key: 'foot', label: '下部テキスト', type: 'text', def: 'OPEN 7:00 - 11:00', placeholder: 'OPEN 7:00 - 11:00' },
+    { key: 'colored', label: '色チョークで描く', type: 'toggle', def: true }
+  ],
+
+  art(env) {
+    const W = 820, H = 1150;
+    const { img, meta, v } = env;
+    const c = newCanvas(W, H);
+    const x = c.getContext('2d');
+
+    // 黒板の地
+    const g = x.createLinearGradient(0, 0, W * 0.3, H);
+    g.addColorStop(0, '#2a3a33');
+    g.addColorStop(0.5, '#1f2c27');
+    g.addColorStop(1, '#18231f');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    // 拭き跡
+    const rw = rnd(808);
+    x.save();
+    for (let i = 0; i < 26; i++) {
+      x.globalAlpha = 0.02 + rw() * 0.05;
+      x.fillStyle = '#cfe0d6';
+      const yy = rw() * H, hh = 20 + rw() * 70;
+      x.beginPath();
+      x.ellipse(rw() * W, yy, 160 + rw() * 260, hh, (rw() - 0.5) * 0.4, 0, Math.PI * 2);
+      x.fill();
+    }
+    x.restore();
+    drawVignette(x, W, H, 0.5);
+
+    // ここから白チョーク層。最後にまとめてかすれさせる
+    const ch = newCanvas(W, H);
+    const k = ch.getContext('2d');
+    const CHALK = '#eef3ec';
+    k.strokeStyle = CHALK; k.fillStyle = CHALK;
+    k.textBaseline = 'alphabetic';
+
+    // 外枠（二重罫＋角飾り）
+    k.lineWidth = 3; roundRect(k, 34, 34, W - 68, H - 68, 14); k.stroke();
+    k.lineWidth = 1.4; roundRect(k, 46, 46, W - 92, H - 92, 10); k.stroke();
+    for (const [cx2, cy2] of [[34, 34], [W - 34, 34], [34, H - 34], [W - 34, H - 34]]) {
+      k.save(); k.translate(cx2, cy2); k.rotate(Math.PI / 4);
+      k.fillRect(-6, -6, 12, 12); k.restore();
+    }
+
+    // 店名
+    const shop = (v.shop || '').toUpperCase();
+    const ss = fitSize(k, shop, 700, FONT.fantasy, W - 160, 66, 20, 0.09);
+    k.font = f(700, ss, FONT.fantasy);
+    drawTracked(k, shop, W / 2, 122, ss * 0.09, 'center');
+    k.lineWidth = 2;
+    k.beginPath(); k.moveTo(W / 2 - 170, 146); k.lineTo(W / 2 + 170, 146); k.stroke();
+    k.save(); k.translate(W / 2, 146); k.rotate(Math.PI / 4); k.fillRect(-5, -5, 10, 10); k.restore();
+
+    // チョークで描いた立ち絵（右側）
+    const pw = 400, ph = 600;
+    const sub = newCanvas(pw, ph);
+    const sx = sub.getContext('2d');
+    const sp = place(env, { x: 8, y: 8, w: pw - 16, h: ph - 16 },
+      { fit: 'contain', anchorY: 1, anchorX: 0.5 });
+    sx.drawImage(img, sp.x, sp.y, sp.w, sp.h);
+    const chalked = fxChalk(sub, pw, ph, {
+      strength: v.colored ? 1.15 : 1.25,
+      tint: !!v.colored,
+      chalk: [0.95, 0.97, 0.94]
+    });
+    if (chalked) k.drawImage(chalked, W - pw - 26, 176, pw, ph);
+    else { k.save(); k.globalAlpha = 0.5; k.drawImage(sub, W - pw - 26, 176, pw, ph); k.restore(); }
+
+    // 見出し
+    const head = v.head || '';
+    const hs = fitSize(k, head, 700, FONT.sans, 330, 44, 16, 0.02);
+    k.font = f(700, hs, FONT.sans);
+    drawTracked(k, head, 66, 244, hs * 0.02, 'left');
+    k.lineWidth = 2.5;
+    k.beginPath(); k.moveTo(66, 262); k.lineTo(66 + trackedWidth(k, head, hs * 0.02), 262); k.stroke();
+
+    // メニュー
+    const items = String(v.menu || '').split('\n').map(t => t.trim()).filter(Boolean).slice(0, 5);
+    const rowH = Math.min(78, (H - 420) / Math.max(items.length, 1));
+    let my = 330;
+    for (const it of items) {
+      const sep = it.indexOf('｜') >= 0 ? '｜' : (it.indexOf('|') >= 0 ? '|' : '\t');
+      const i2 = it.indexOf(sep);
+      const name = i2 >= 0 ? it.slice(0, i2).trim() : it;
+      const price = i2 >= 0 ? it.slice(i2 + 1).trim() : '';
+      const ns = fitSize(k, name, 400, FONT.sans, 250, 31, 12, 0.01);
+      k.font = f(400, ns, FONT.sans);
+      drawTracked(k, name, 66, my, ns * 0.01, 'left');
+      const nw = trackedWidth(k, name, ns * 0.01);
+      if (price) {
+        k.font = f(700, 29, FONT.cond);
+        k.textAlign = 'right'; k.fillText(price, 400, my); k.textAlign = 'left';
+        const pw2 = k.measureText(price).width;
+        k.save(); k.globalAlpha = 0.55; k.lineWidth = 1.6;
+        k.setLineDash([2, 7]);
+        k.beginPath(); k.moveTo(66 + nw + 10, my - 8); k.lineTo(400 - pw2 - 10, my - 8); k.stroke();
+        k.restore(); k.setLineDash([]);
+      }
+      my += rowH;
+    }
+
+    // 下部（OPEN表示）
+    const foot = (v.foot || '').toUpperCase();
+    if (foot) {
+      const fs = fitSize(k, foot, 600, FONT.cond, W - 260, 34, 12, 0.16);
+      k.font = f(600, fs, FONT.cond);
+      const fw = trackedWidth(k, foot, fs * 0.16);
+      k.lineWidth = 2.2;
+      roundRect(k, W / 2 - fw / 2 - 26, H - 138, fw + 52, 62, 10); k.stroke();
+      drawTracked(k, foot, W / 2, H - 96, fs * 0.16, 'center');
+    }
+    // 小さな飾り（湯気の立つカップ）
+    k.save();
+    k.translate(88, H - 120); k.lineWidth = 2.4;
+    k.beginPath(); k.moveTo(0, 0); k.lineTo(4, 26); k.lineTo(34, 26); k.lineTo(38, 0); k.closePath(); k.stroke();
+    k.beginPath(); k.arc(44, 10, 9, -Math.PI / 2, Math.PI / 2); k.stroke();
+    k.lineWidth = 2;
+    for (const dx of [8, 19, 30]) {
+      k.beginPath();
+      k.moveTo(dx, -8); k.quadraticCurveTo(dx + 7, -18, dx, -28);
+      k.stroke();
+    }
+    k.restore();
+
+    // チョークのかすれ（層全体を粒で削る）
+    const nz = newCanvas(Math.ceil(W / 2), Math.ceil(H / 2));
+    const ng = nz.getContext('2d');
+    const nid = ng.createImageData(nz.width, nz.height);
+    const rn = rnd(2468);
+    for (let i = 0; i < nz.width * nz.height; i++) {
+      nid.data[i * 4 + 3] = rn() < 0.34 ? Math.floor(rn() * 210) : 0;
+    }
+    ng.putImageData(nid, 0, 0);
+    k.globalCompositeOperation = 'destination-out';
+    k.globalAlpha = 0.55;
+    k.drawImage(nz, 0, 0, W, H);
+    k.globalCompositeOperation = 'source-over';
+    k.globalAlpha = 1;
+
+    x.drawImage(ch, 0, 0);
+    drawGrain(x, W, H, 0.05, 17, 2);
+    return c;
+  },
+
+  render(ctx, env) {
+    const W = env.W, H = env.H;
+    const art = this.art(env);
+    if (!GLX.available()) { ctx.drawImage(art, (W - H * art.width / art.height) / 2, 0, H * art.width / art.height, H); return; }
+
+    const boardTex = GLX.texture(art);
+    const ground = GLX.texture(surfaceTexture('stone'), { repeat: true });
+    const wood = GLX.texture(surfaceTexture('wood'), { repeat: true });
+    const shadow = GLX.texture(shadowTexture());
+    const trash = [boardTex, ground, wood, shadow];
+
+    const BW = 0.66, BH = 0.926, TILT = -10;
+    const boardPos = [0, 0.74, 0];
+    const eye = [0.71, 1.22, 1.33];
+    const at = [-0.02, 0.76, 0.0];
+
+    Stage3D.render(ctx, {
+      W, H, clear: [0.14, 0.13, 0.12], ambient: 0.50,
+      light: [0.45, 0.80, 0.45],
+      camera: {
+        eye, at, fov: 38,
+        focus: Math.hypot(eye[0] - boardPos[0], eye[1] - boardPos[1], eye[2] - boardPos[2]),
+        dofScale: 0.75, blur: 10
+      },
+      draw(api) {
+        api.quad([0, 0, -0.4], [0, 0, 0], [16, 16], { tex: ground, uvScale: [8, 8] });
+        // 店の正面
+        api.box([0, 1.6, -1.78], [0, 0, 0], [7, 3.2, 0.18], { tex: wood, face: Stage3D.FACE.FRONT, edge: [0.35, 0.26, 0.19] });
+        api.box([0, 0.07, -1.48], [0, 0, 0], [7, 0.14, 0.55], { color: [0.62, 0.60, 0.56] });
+        // 窓（店内の灯り）
+        api.box([-1.05, 1.36, -1.66], [0, 0, 0], [1.86, 1.26, 0.05], { color: [0.20, 0.16, 0.13] });
+        api.box([-1.05, 1.36, -1.63], [0, 0, 0], [1.72, 1.12, 0.04], { color: [0.98, 0.86, 0.62], unlit: true });
+        // 扉
+        api.box([1.28, 1.04, -1.64], [0, 0, 0], [1.0, 2.08, 0.08], { color: [0.24, 0.16, 0.11] });
+        api.box([1.28, 1.72, -1.60], [0, 0, 0], [0.72, 0.5, 0.04], { color: [0.95, 0.84, 0.62], unlit: true });
+        // 吊り看板
+        api.box([1.28, 2.42, -1.50], [0, 0, 0], [0.78, 0.28, 0.06], { color: [0.20, 0.15, 0.11] });
+        // 植木
+        api.box([-1.02, 0.19, -0.72], [0, 12, 0], [0.38, 0.38, 0.38], { color: [0.52, 0.30, 0.22] });
+        api.box([-1.02, 0.62, -0.72], [0, 20, 0], [0.46, 0.52, 0.42], { color: [0.24, 0.40, 0.24] });
+
+        if (api.mode === 0) {
+          api.blend(true);
+          api.quad([0, 0.005, -0.06], [0, 0, 0], [1.15, 1.05], { tex: shadow, unlit: true });
+          api.blend(false);
+        }
+        // A型看板：木枠 → 黒板面 → 後脚
+        api.box([0, 0.5, -0.34], [16, 0, 0], [0.09, 1.02, 0.06], { tex: wood, face: Stage3D.FACE.FRONT, edge: [0.42, 0.31, 0.22] });
+        api.box([0, 0.12, -0.18], [0, 0, 0], [0.5, 0.05, 0.05], { color: [0.42, 0.31, 0.22] });
+        api.box(boardPos, [TILT, 0, 0], [BW + 0.10, BH + 0.10, 0.05],
+          { tex: wood, face: Stage3D.FACE.FRONT, edge: [0.42, 0.31, 0.22] });
+        api.box([boardPos[0], boardPos[1], boardPos[2] + 0.032], [TILT, 0, 0], [BW, BH, 0.02],
+          { tex: boardTex, face: Stage3D.FACE.FRONT, edge: [0.10, 0.13, 0.11] });
+      }
+    });
+    GLX.dispose(trash);
+
+    // 朝の斜光
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const lg = ctx.createLinearGradient(W * 0.9, 0, W * 0.1, H * 0.8);
+    lg.addColorStop(0, 'rgba(255,232,178,0.26)');
+    lg.addColorStop(0.55, 'rgba(255,232,178,0.05)');
+    lg.addColorStop(1, 'rgba(255,232,178,0)');
+    ctx.fillStyle = lg; ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    drawVignette(ctx, W, H, 0.44);
+    drawGrain(ctx, W, H, 0.045, 23, 2);
+  }
+});
+
+/* =========================================================================
+ * [8] アプリ本体（状態管理・UI・出力）
+ * ====================================================================== */
+
+/* X に投稿する本文。タグも地の文も入れず、配布ページのリンクだけを載せる */
+const SHARE_URL = 'https://ginka1108.github.io/ohav_recommend/';
+
+const app = (() => {
+  const cv = $('preview');
+  const ctx = cv.getContext('2d');
+  const state = {
+    modeId: MODES[0].id,
+    img: null,
+    meta: null,
+    fileName: '',
+    values: {},          // modeId -> { key: value }
+    adjust: {},          // modeId -> { scale, dx, dy }（立ち絵の微調整）
+    blob: null,
+    rendering: false,
+    dirty: false
+  };
+  // 各モードの初期値をセット（未入力でも成立する）
+  for (const m of MODES) {
+    state.values[m.id] = {};
+    for (const fl of m.fields) state.values[m.id][fl.key] = fl.def === undefined ? '' : fl.def;
+    state.adjust[m.id] = { scale: 1, dx: 0, dy: 0 };
+  }
+
+  const mode = () => MODES.find(m => m.id === state.modeId);
+
+  /* ---- トースト ---- */
+  let toastT = 0;
+  function toast(msg) {
+    const el = $('toast');
+    el.textContent = msg;
+    el.classList.add('on');
+    clearTimeout(toastT);
+    toastT = setTimeout(() => el.classList.remove('on'), 2600);
+  }
+
+  /* ---- タブ ---- */
+  function buildTabs() {
+    const wrap = $('tabs');
+    wrap.innerHTML = '';
+    for (const m of MODES) {
+      const b = document.createElement('button');
+      b.className = 'tab';
+      b.type = 'button';
+      b.textContent = m.name;
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', String(m.id === state.modeId));
+      b.onclick = () => {
+        if (state.modeId === m.id) return;
+        state.modeId = m.id;
+        buildTabs(); buildFields(); syncAdjust();
+        scheduleRender(true);
+      };
+      wrap.appendChild(b);
+    }
+  }
+
+  /* ---- 入力フォーム ---- */
+  function buildFields() {
+    const wrap = $('fields');
+    wrap.innerHTML = '';
+    const m = mode();
+    for (const fl of m.fields) {
+      const d = document.createElement('div');
+      d.className = 'field';
+      if (fl.type === 'toggle') {
+        const tg = document.createElement('label');
+        tg.className = 'toggle';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.id = 'fld_' + fl.key;
+        cb.checked = !!state.values[m.id][fl.key];
+        cb.addEventListener('change', () => {
+          state.values[m.id][fl.key] = cb.checked;
+          scheduleRender(true);
+        });
+        const txt = document.createElement('span');
+        txt.textContent = fl.label;
+        tg.appendChild(cb); tg.appendChild(txt);
+        d.appendChild(tg);
+        wrap.appendChild(d);
+        continue;
+      }
+      const lb = document.createElement('label');
+      lb.textContent = fl.label;
+      lb.htmlFor = 'fld_' + fl.key;
+      d.appendChild(lb);
+      const el = document.createElement(fl.type === 'textarea' ? 'textarea' : 'input');
+      el.id = 'fld_' + fl.key;
+      if (fl.type !== 'textarea') el.type = 'text';
+      else el.rows = fl.rows || 3;
+      el.placeholder = fl.placeholder || '';
+      el.value = state.values[m.id][fl.key] || '';
+      el.addEventListener('input', () => {
+        state.values[m.id][fl.key] = el.value;
+        scheduleRender(false);
+      });
+      d.appendChild(el);
+      wrap.appendChild(d);
+    }
+  }
+
+  /* ---- 立ち絵の位置・大きさ ---- */
+  function syncAdjust() {
+    const a = state.adjust[state.modeId];
+    $('adjScale').value = Math.round(a.scale * 100);
+    $('adjX').value = Math.round(a.dx * 100);
+    $('adjY').value = Math.round(a.dy * 100);
+    $('adjScaleV').textContent = Math.round(a.scale * 100) + '%';
+    $('adjXV').textContent = (a.dx > 0 ? '+' : '') + Math.round(a.dx * 100);
+    $('adjYV').textContent = (a.dy > 0 ? '+' : '') + Math.round(a.dy * 100);
+  }
+  function wireAdjust() {
+    const bind = (id, key, div) => {
+      $(id).addEventListener('input', () => {
+        state.adjust[state.modeId][key] = Number($(id).value) / div;
+        syncAdjust();
+        scheduleRender(false);
+      });
+    };
+    bind('adjScale', 'scale', 100);
+    bind('adjX', 'dx', 100);
+    bind('adjY', 'dy', 100);
+    $('adjReset').onclick = () => {
+      state.adjust[state.modeId] = { scale: 1, dx: 0, dy: 0 };
+      syncAdjust();
+      scheduleRender(true);
+    };
+    syncAdjust();
+  }
+
+  /* ---- 画像読み込み ---- */
+  function loadFile(file) {
+    if (!file || !/^image\//.test(file.type)) { toast('画像ファイルを選んでください'); return; }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      state.img = img;
+      state.meta = analyzeImage(img);
+      state.fileName = file.name;
+      updateDropUI(file, img);
+      $('empty').style.display = 'none';
+      scheduleRender(true);
+    };
+    img.onerror = () => { toast('画像を読み込めませんでした'); URL.revokeObjectURL(url); };
+    img.src = url;
+  }
+  function updateDropUI(file, img) {
+    const drop = $('drop');
+    drop.classList.add('has');
+    drop.innerHTML = `
+      <img class="thumb" src="${img.src}" alt="">
+      <div class="finfo">${file.name.replace(/[<>&]/g, '')}</div>
+      <button class="mini" type="button" id="btnChange">変更</button>
+      <input type="file" id="file" accept="image/*">`;
+    wireDrop();
+    $('btnChange').onclick = (e) => { e.stopPropagation(); $('file').click(); };
+  }
+  function wireDrop() {
+    const drop = $('drop');
+    const input = $('file');
+    drop.onclick = (e) => { if (e.target.tagName !== 'BUTTON') input.click(); };
+    input.onchange = () => { if (input.files[0]) loadFile(input.files[0]); };
+    drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
+    drop.ondragleave = () => drop.classList.remove('over');
+    drop.ondrop = (e) => {
+      e.preventDefault(); drop.classList.remove('over');
+      if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+    };
+  }
+  window.addEventListener('paste', (e) => {
+    const items = e.clipboardData && e.clipboardData.files;
+    if (items && items[0]) loadFile(items[0]);
+  });
+
+  /* ---- フォント読み込み（描画前に必ず解決させる） ---- */
+  let fontsReady = null;
+  function ensureFonts() {
+    if (fontsReady) return fontsReady;
+    const specs = [
+      '400 100px "Anton"', '400 100px "Cinzel"', '500 100px "Cinzel"', '700 100px "Cinzel"',
+      '400 100px "Oswald"', '600 100px "Oswald"', '700 100px "Oswald"',
+      '400 100px "Noto Sans JP"', '700 100px "Noto Sans JP"', '900 100px "Noto Sans JP"',
+      '400 100px "Noto Serif JP"', '700 100px "Noto Serif JP"', '900 100px "Noto Serif JP"'
+    ];
+    const jobs = specs.map(s => {
+      try { return document.fonts.load(s, 'おはようVtuber ABC 0123'); }
+      catch (e) { return Promise.resolve(); }
+    });
+    fontsReady = Promise.all(jobs).then(() => document.fonts.ready).catch(() => { });
+    return fontsReady;
+  }
+
+  /* ---- 描画 ---- */
+  // 描画前に1フレーム待ってスピナーを表示させる。タブが非表示だと
+  // requestAnimationFrame が止まるため、タイマー側でも必ず進むようにする。
+  const nextFrame = () => new Promise(r => {
+    let done = false;
+    const fin = () => { if (!done) { done = true; r(); } };
+    requestAnimationFrame(() => requestAnimationFrame(fin));
+    setTimeout(fin, 150);
+  });
+
+  function resetCtx() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.filter = 'none';
+    ctx.shadowColor = 'rgba(0,0,0,0)';
+    ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.lineWidth = 1; ctx.lineJoin = 'miter'; ctx.miterLimit = 10;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+  }
+
+  async function render() {
+    if (!state.img || state.rendering) { state.dirty = !!state.img; return; }
+    state.rendering = true;
+    const m = mode();
+    $('spinner').classList.add('on');
+    setButtons(false);
+    await ensureFonts();
+    await nextFrame();
+
+    const t0 = performance.now();
+    try {
+      resetCtx();
+      ctx.clearRect(0, 0, OUT, OUT);
+      m.render(ctx, {
+        img: state.img, meta: state.meta, v: state.values[m.id],
+        adj: state.adjust[m.id], W: OUT, H: OUT
+      });
+    } catch (e) {
+      console.error(e);
+      resetCtx();
+      ctx.fillStyle = '#1a1d24'; ctx.fillRect(0, 0, OUT, OUT);
+      ctx.fillStyle = '#ff8a8a'; ctx.font = f(700, 34, FONT.sans);
+      ctx.textAlign = 'center';
+      ctx.fillText('生成に失敗しました', OUT / 2, OUT / 2 - 20);
+      ctx.fillStyle = '#98a2b3'; ctx.font = f(400, 22, FONT.sans);
+      ctx.fillText(String(e.message || e).slice(0, 60), OUT / 2, OUT / 2 + 26);
+      toast('生成に失敗しました');
+    }
+    resetCtx();
+    console.log('[render] %s %dms', m.id, Math.round(performance.now() - t0));
+
+    // 共有用の Blob を先に作っておく（ユーザー操作直後に share() を呼べるように）
+    state.blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    $('spinner').classList.remove('on');
+    setButtons(true);
+    state.rendering = false;
+    if (state.dirty) { state.dirty = false; render(); }
+  }
+
+  const renderDebounced = debounce(() => render(), 420);
+  function scheduleRender(now) {
+    if (!state.img) return;
+    if (now) render(); else renderDebounced();
+  }
+
+  function setButtons(on) {
+    $('btnSave').disabled = !on || !state.img;
+    $('btnShare').disabled = !on || !state.img;
+  }
+
+  /* ---- 出力 ---- */
+  function outName(ext) {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return `ohayo-${mode().id}-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.${ext}`;
+  }
+  function downloadBlob(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+  function shareText() {
+    return SHARE_URL;
+  }
+
+  $('btnSave').onclick = async () => {
+    const blob = state.blob || await new Promise(r => cv.toBlob(r, 'image/png'));
+    downloadBlob(blob, outName('png'));
+    toast('画像を保存しました');
+  };
+
+  const canShareFiles = (() => {
+    try {
+      if (!navigator.canShare || !navigator.share) return false;
+      const f = new File([new Blob(['x'], { type: 'image/png' })], 't.png', { type: 'image/png' });
+      return navigator.canShare({ files: [f] });
+    } catch (e) { return false; }
+  })();
+
+  $('btnShare').onclick = async () => {
+    const text = shareText();
+    if (canShareFiles && state.blob) {
+      const file = new File([state.blob], outName('png'), { type: 'image/png' });
+      try {
+        await navigator.share({ files: [file], text });
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+        console.warn(e);
+        toast('共有できませんでした');
+      }
+      return;
+    }
+    // フォールバック: X の intent URL は画像添付に非対応のため、
+    // 画像は保存してもらい、テキストだけを埋めた投稿画面を開く
+    const blob = state.blob || await new Promise(r => cv.toBlob(r, 'image/png'));
+    downloadBlob(blob, outName('png'));
+    window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text), '_blank', 'noopener');
+    toast('画像を保存しました。Xの投稿画面で添付してください');
+  };
+
+  /* ---- 初期化 ---- */
+  function init() {
+    buildTabs();
+    buildFields();
+    wireAdjust();
+    wireDrop();
+    setButtons(false);
+    if (!GLX.available()) toast('WebGL2が使えないため一部モードは簡易表示になります');
+    ensureFonts();
+  }
+
+  return { init, render, toast };
+})();
+
+app.init();
+</script>
+</body>
+</html>
