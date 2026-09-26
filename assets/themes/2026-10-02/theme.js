@@ -1,18 +1,17 @@
 /* =========================================================================
- *  10/02 豆腐の日（「とう(10)ふ(2)」の語呂合わせ。日本豆腐協会が制定）
- *  障子から朝の光が入る和室のちゃぶ台。土鍋の湯豆腐（昆布と豆腐）、
- *  藍色の皿に青じそを敷いた冷奴（おろし生姜と刻みねぎ）、白磁の醤油差し、
- *  青磁の湯のみ、卓上カレンダーの横にアクスタを置く。
+ *  10/02 望遠鏡の日（1608年のこの日、オランダの眼鏡職人リッペルハイが望遠鏡の特許を申請した）
+ *  星好きの部屋の机。真鍮の屈折望遠鏡（卓上三脚）、天球儀、星座早見盤、
+ *  卓上カレンダーの横にアクスタを置く。奥は星柄の壁紙と、朝の空に白い月が残る窓。
  *  単位: アクスタの板の高さ 1.0 ≒ 15cm
  * ====================================================================== */
 (function () {
 'use strict';
 
 OhaV.defineTheme({
-  id: 'tofu-day',
-  title: '豆腐の日',
-  dayName: 'Tofu Day',
-  caption: { fill: '#ffffff', outline: '#2c3e63' },
+  id: 'telescope-day',
+  title: '望遠鏡の日',
+  dayName: 'Telescope Day',
+  caption: { fill: '#ffffff', outline: '#233a6b' },
   size: [1350, 1350],
   adjustRange: { scale: [75, 115], x: [-30, 30], y: [-10, 8] },
 
@@ -20,269 +19,192 @@ OhaV.defineTheme({
     const { E, W, H } = env;
     const S = E.Stage3D, G = E.GEN, M = E.MAT;
     const stand = E.acrylicStand(env);
-    const cal = E.dateProp(env, { style: { paper: '#f4efe2', ink: '#2c3e63', accent: '#b0413e', back: '#e2dac6', grain: 0.08 } });
+    const cal = E.dateProp(env, { style: { paper: '#f5f1e6', ink: '#233a6b', accent: '#c8923a', back: '#e2dccb', grain: 0.06 } });
     const K = E.props();
     const T = makeTextures(E);
     const tex = {};
-    for (const k in T) tex[k] = K.texture(T[k], { repeat: ['table', 'shoji', 'tatami'].includes(k) });
+    for (const k in T) tex[k] = K.texture(T[k], { repeat: ['desk', 'wall'].includes(k) });
     const mat = (base, o) => Object.assign({}, base, o);
 
     /* ---------- 配置 ---------- */
-    const P = { x: 0.0, z: 0.05, yaw: 12 };            // アクスタ
-    const NABE = { x: 0.86, z: -1.22 };                   // 土鍋（右奥）
-    const YAKKO = { x: 0.74, z: -0.04 };                  // 冷奴（右手前）
-    const CAL = { x: -0.74, z: -0.78, yaw: 24 };          // 卓上カレンダー（左奥）
-    const YUNOMI = { x: 0.12, z: -1.85 };                  // 湯のみ（左）
-    const SHOYU = { x: 0.3, z: -0.98 };                    // 醤油差し（奥）
-    const eye = [0.48, 1.32, 2.72], at = [0.1, 0.46, -0.1];
+    const P = { x: -0.04, z: 0.04, yaw: 12 };            // アクスタ
+    const SCOPE = { x: 0.72, z: -1.2, yaw: 18 };         // 望遠鏡（右奥。窓のほうへ向ける）
+    const GLOBE = { x: -0.92, z: -1.4 };                  // 天球儀（左奥）
+    const CAL = { x: -0.66, z: -0.5, yaw: 20 };           // 卓上カレンダー（左）
+    const DISC = { x: 0.62, z: -0.02 };                   // 星座早見盤（右手前）
+    const eye = [0.3, 1.3, 2.75], at = [0.02, 0.5, -0.1];
     const focus = Math.hypot(eye[0] - P.x, eye[1] - 0.6, eye[2] - P.z);
-    const WHITE = [0.97, 0.96, 0.93];
-    const AI = [0.2, 0.3, 0.52];                          // 藍
+    const BRASS = mat(M.gold, { color: [0.88, 0.7, 0.4] });
+    const DARK = mat(M.plastic, { color: [0.14, 0.15, 0.2], spec: 0.5, shin: 70 });
 
     /* ---------- 形 ---------- */
-    // 土鍋：ぽってりした胴、口縁は厚く、内側はなだらかに底へ
-    const nabeOut = [[0, 0.012], [0.28, 0.012], [0.3, 0, 1], [0.34, 0.004], [0.36, 0.03, 1], [0.44, 0.1], [0.49, 0.2], [0.505, 0.29],
-      [0.5, 0.36], [0.49, 0.385], [0.475, 0.395, 1], [0.455, 0.39]];
-    const nabeIn = [[0.455, 0.39], [0.45, 0.36], [0.44, 0.28], [0.41, 0.18], [0.33, 0.1], [0.18, 0.075], [0, 0.07]];
-    // 醤油差し：丸い胴・細い首・注ぎ口
-    const shoyuProf = [[0, 0.004], [0.2, 0.004], [0.22, 0, 1], [0.25, 0.02], [0.34, 0.12], [0.37, 0.24], [0.33, 0.38], [0.22, 0.46],
-      [0.14, 0.5], [0.13, 0.56], [0.15, 0.58], [0.15, 0.6, 1], [0, 0.6]];
-    const lidProf = [[0, 0], [0.16, 0], [0.165, 0.02], [0.12, 0.05], [0.06, 0.07], [0.07, 0.1], [0.05, 0.14], [0, 0.145]];
-    // 湯のみ：少し胴のしまった筒、厚い口縁
-    const yunomiProf = [[0, 0.01], [0.3, 0.01], [0.32, 0, 1], [0.37, 0, 1], [0.38, 0.03], [0.4, 0.3], [0.38, 0.62], [0.41, 0.9], [0.42, 1.0],
-      [0.405, 1.02], [0.385, 1.0], [0.37, 0.9], [0.345, 0.62], [0.36, 0.3], [0.34, 0.1], [0, 0.09]];
-    // 青じそ：ぎざぎざの縁・中心が少し盛り上がる葉
-    const shisoGeo = () => G.surface((u, v) => {
-      const s = v * 2 - 1, len = 1;
-      const w = 0.42 * Math.pow(Math.sin(Math.PI * Math.min(1, u * 1.02)), 0.75) * (1 + 0.06 * Math.sin(u * 60)) + 0.004;
-      return [s * w, 0.05 * (1 - s * s) * Math.sin(Math.PI * u) - 0.03 * s * s, (u - 0.5) * len];
-    }, 48, 12);
-    // おろし生姜：ふんわりした小山
-    const gingerGeo = () => G.surface((u, v) => {
-      const th = u * Math.PI * 2, ph = v * Math.PI / 2, n = 1 + 0.08 * Math.sin(th * 5) * Math.cos(ph);
-      return [0.5 * Math.cos(ph) * Math.sin(th) * n, 0.4 * Math.sin(ph), 0.5 * Math.cos(ph) * Math.cos(th) * n];
-    }, 40, 12);
+    // 鏡筒（+Y が前）：接眼部 → 胴 → 対物レンズのフード（少し太い）
+    const tubeProf = [[0, 0], [0.05, 0], [0.05, 0.08], [0.09, 0.1], [0.1, 0.14], [0.11, 0.2], [0.12, 0.25], [0.12, 0.84], [0.14, 0.86], [0.14, 1.0], [0.125, 1.0], [0.125, 0.9], [0, 0.9]];
+    // 天球儀の台（木）
+    const globeBase = [[0, 0.004], [0.4, 0.004], [0.44, 0, 1], [0.46, 0.04], [0.42, 0.08], [0.2, 0.1], [0.08, 0.14], [0.06, 0.4], [0.1, 0.44], [0, 0.44]];
+    // 星座早見盤（丸い台紙・回る星図・縁）
+    const discProf = [[0, 0], [0.48, 0], [0.5, 0.02], [0.5, 0.05], [0.47, 0.06], [0, 0.06]];
 
     const safe = guardApi();                           // 初めて描く形の影の乱れを防ぐ（下の guardApi を参照）
     S.render(ctx, {
-      W, H, clear: [0.93, 0.91, 0.86], ambient: 0.54, light: [0.12, 0.9, 0.55], lightCol: [1.1, 1.07, 1.02],
-      sky: [1.02, 1.0, 0.96], ground: [0.66, 0.56, 0.44], envTop: [1.05, 1.03, 0.98], envBot: [0.45, 0.36, 0.28],
+      W, H, clear: [0.84, 0.88, 0.95], ambient: 0.55, light: [0.4, 0.86, 0.55], lightCol: [1.08, 1.06, 1.02],
+      sky: [1.0, 1.02, 1.06], ground: [0.62, 0.56, 0.5], envTop: [1.04, 1.04, 1.06], envBot: [0.42, 0.38, 0.34],
       camera: { eye, at, fov: 31, focus, dofScale: 0.3, blur: 12 },
       draw(api) {
         api = safe(api);
-        /* --- 奥：障子と長押、足元に畳 --- */
-        api.panel([0, 1.7, -4.2], [0, 0, 0], [12, 4.4], { tex: tex.shoji, uvScale: [6, 1], unlit: true });
-        api.box([0, 3.95, -4.15], [0, 0, 0], [12, 0.14, 0.12], mat(M.wood, { color: [0.55, 0.4, 0.27] }));
-        api.box([0, -0.48, -4.15], [0, 0, 0], [12, 0.1, 0.14], mat(M.wood, { color: [0.5, 0.36, 0.24] }));
-        api.quad([0, -0.52, -2.5], [0, 0, 0], [12, 4], { tex: tex.tatami, uvScale: [3, 1] });
+        /* --- 奥：星柄の壁紙と、朝の空の窓 --- */
+        api.panel([0, 1.6, -3.2], [0, 0, 0], [12, 5], { tex: tex.wall, uvScale: [5, 2], unlit: true });
+        api.panel([0.6, 1.5, -3.18], [0, 0, 0], [2.4, 1.6], { tex: tex.window, unlit: true });
+        /* --- 机 --- */
+        api.box([0, -0.05, -0.6], [0, 0, 0], [6.4, 0.1, 4.4], mat(M.wood, { tex: tex.desk, face: S.FACE.TOP, edge: [0.46, 0.3, 0.2], uvScale: [2, 1] }));
 
-        /* --- ちゃぶ台（丸い天板・厚みのある縁） --- */
-        api.lathe('tofu:table', [[0, -0.09], [2.6, -0.09], [2.62, -0.07], [2.62, -0.02], [2.6, 0], [0, 0]], [0.1, 0, -0.5], [0, 0, 0], [1, 1, 1],
-          mat(M.wood, { color: [0.62, 0.42, 0.26], seg: 160 }));
-        api.cylinder([0.1, 0.0005, -0.5], [0, 0, 0], [5.2, 0.001, 5.2], mat(M.wood, { tex: tex.table, part: 'TOP', uvScale: [1, 1] }));
-
-        /* --- 土鍋の湯豆腐（右奥） --- */
-        const ns = 0.86, nx = NABE.x, nz = NABE.z;
-        api.lathe('tofu:nabeOut', nabeOut, [nx, 0, nz], [0, 0, 0], [ns, ns, ns], mat(M.ceramic, { tex: tex.nabe, spec: 0.35, shin: 50 }));
-        api.lathe('tofu:nabeIn', nabeIn, [nx, 0, nz], [0, 0, 0], [ns, ns, ns], mat(M.ceramic, { color: [0.93, 0.88, 0.78], spec: 0.3 }));
-        // 耳（左右の小さな持ち手）
-        for (const sgn of [-1, 1]) {
-          api.mesh('tofu:ear', () => G.tube((t) => { const a = t * Math.PI; return [0, 0.03 * Math.sin(a), -0.09 * Math.cos(a)]; }, () => 0.028, 20, 12, true),
-            [nx + sgn * 0.5 * ns, 0.33 * ns, nz], [0, sgn > 0 ? 0 : 180, -8 * sgn], [1, 1, 1], mat(M.ceramic, { color: [0.3, 0.2, 0.16], spec: 0.35, shin: 50 }));
-          api.rbox([nx + sgn * 0.475 * ns, 0.33 * ns, nz], [0, 0, 0], [0.05, 0.05, 0.2], mat(M.ceramic, { color: [0.3, 0.2, 0.16], round: 0.3 }));
+        /* --- 真鍮の屈折望遠鏡と卓上三脚 --- */
+        const sx = SCOPE.x, sz = SCOPE.z, head = 0.52;
+        for (let i = 0; i < 3; i++) {                     // 三本脚（頭から机へ開く）
+          const a = (i / 3) * Math.PI * 2 + 0.3, fx = Math.sin(a) * 0.26, fz = Math.cos(a) * 0.26;
+          api.mesh('tel:leg' + i, () => G.tube((t) => [fx * t, head - 0.04 - (head - 0.04) * t, fz * t], () => 0.016, 12, 8, true), [sx, 0, sz], [0, 0, 0], [1, 1, 1], DARK);
+          api.lathe('tel:foot', [[0, 0], [0.5, 0], [0.4, 1], [0, 1]], [sx + fx, 0, sz + fz], [0, 0, 0], [0.05, 0.03, 0.05], BRASS);
         }
-        // 底の昆布（だしの中に沈む）
-        api.rbox([nx - 0.04, 0.085 * ns, nz + 0.02], [0, 18, 0], [0.5, 0.008, 0.2], mat(M.matte, { color: [0.2, 0.26, 0.16], round: 0.2 }));
-        // 豆腐（だしから頭を出す角切り）
-        const cubes = [[-0.14, -0.08, 12], [0.1, -0.1, -8], [-0.02, 0.12, 30], [0.17, 0.1, 4], [-0.18, 0.13, -20]];
-        for (const [cx, cz, ry] of cubes)
-          api.rbox([nx + cx, 0.315 * ns, nz + cz], [0, ry, 0], [0.15, 0.1, 0.15], mat(M.cream, { tex: tex.tofu, round: 0.14, spec: 0.3, shin: 30 }));
-        // 三つ葉（だしに浮かぶ）
-        for (const [lx, lz, ry] of [[0.02, -0.02, 40], [-0.1, 0.02, -60]])
-          api.mesh('tofu:mitsuba', shisoGeo, [nx + lx, 0.36 * ns, nz + lz], [0, ry, 0], [0.12, 0.1, 0.12], mat(M.plastic, { color: [0.38, 0.62, 0.3], spec: 0.25 }));
+        api.lathe('tel:head', [[0, 0], [0.5, 0], [0.5, 0.5], [0.3, 1], [0, 1]], [sx, head - 0.06, sz], [0, 0, 0], [0.12, 0.1, 0.12], BRASS);
+        api.rbox([sx, head + 0.07, sz], [0, SCOPE.yaw, 0], [0.08, 0.1, 0.1], mat(DARK, { round: 0.25 }));
+        // 鏡筒：前（+Y）を上向き 25°、yaw の方向へ。支点が胴の中ほどに来るよう少し後ろへずらす
+        const pitch = 28, L = 0.82, yr = SCOPE.yaw * Math.PI / 180, pr = pitch * Math.PI / 180;
+        const dir = [-Math.sin(yr) * Math.cos(pr), Math.sin(pr), -Math.cos(yr) * Math.cos(pr)];   // lathe の +Y 軸が向く方向
+        const back = 0.42 * L, o = [sx - dir[0] * back, head + 0.12 - dir[1] * back, sz - dir[2] * back];
+        // lathe の軸(+Y)を dir に向ける：X 回転で前へ倒し（-90+pitch）、Y 回転で向きを合わせる
+        api.lathe('tel:tube', tubeProf, o, [-(90 - pitch), SCOPE.yaw, 0], [L, L, L], mat(BRASS, { tex: tex.tube, metal: 0.45, color: [1, 1, 1] }));
+        api.lathe('tel:lens', [[0, 0], [0.5, 0], [0.5, 0.2], [0, 0.2]], [o[0] + dir[0] * 0.9 * L, o[1] + dir[1] * 0.9 * L, o[2] + dir[2] * 0.9 * L], [-(90 - pitch), SCOPE.yaw, 0],
+          [0.25 * L, 0.02, 0.25 * L], mat(M.glass, { color: [0.3, 0.42, 0.6], spec: 1, shin: 160, rim: 0.8 }));
+        // ファインダー（小さな筒を上に）
+        const fo = [o[0] + dir[0] * 0.55 * L, o[1] + dir[1] * 0.55 * L + 0.2, o[2] + dir[2] * 0.55 * L];
+        api.lathe('tel:finder', [[0, 0], [0.5, 0], [0.5, 1], [0.6, 1], [0.6, 1.1], [0, 1.1]], [fo[0] - dir[0] * 0.14, fo[1] - dir[1] * 0.14, fo[2] - dir[2] * 0.14],
+          [-(90 - pitch), SCOPE.yaw, 0], [0.05, 0.26, 0.05], BRASS);
+        for (const k of [0.3, 0.7]) api.cylinder([fo[0] + dir[0] * (k - 0.5) * 0.24, fo[1] - 0.06 + dir[1] * (k - 0.5) * 0.24, fo[2] + dir[2] * (k - 0.5) * 0.24], [0, 0, 0], [0.018, 0.1, 0.018], BRASS);
 
-        /* --- 冷奴（藍の丸皿・青じそ・豆腐・生姜・ねぎ） --- */
-        const py = K.plate(api, { x: YAKKO.x, z: YAKKO.z, d: 0.72, color: [0.94, 0.93, 0.9], mat: { tex: tex.aiPlate } });
-        api.mesh('tofu:shiso', shisoGeo, [YAKKO.x - 0.03, py + 0.012, YAKKO.z - 0.02], [0, 64, 0], [0.34, 0.3, 0.44],
-          mat(M.plastic, { tex: tex.shiso, spec: 0.2, shin: 30 }));
-        const ty = py + 0.018, th = 0.13;
-        api.rbox([YAKKO.x, ty + th / 2, YAKKO.z], [0, -18, 0], [0.25, th, 0.2], mat(M.cream, { tex: tex.tofu, round: 0.12, spec: 0.35, shin: 34 }));
-        api.mesh('tofu:ginger', gingerGeo, [YAKKO.x - 0.02, ty + th - 0.005, YAKKO.z + 0.01], [0, 0, 0], [0.085, 0.07, 0.085],
-          mat(M.cream, { color: [0.95, 0.8, 0.46], spec: 0.25 }));
-        api.mesh('tofu:negi', gingerGeo, [YAKKO.x + 0.06, ty + th - 0.005, YAKKO.z - 0.03], [0, 30, 0], [0.07, 0.04, 0.07],
-          mat(M.cream, { tex: tex.negi, spec: 0.25 }));
+        /* --- 天球儀 --- */
+        const gx = GLOBE.x, gz = GLOBE.z, gs = 0.6;
+        api.lathe('tel:gbase', globeBase, [gx, 0, gz], [0, 0, 0], [gs, gs, gs], mat(M.wood, { color: [0.42, 0.26, 0.16], spec: 0.35, shin: 50 }));
+        const gy = 0.44 * gs + 0.2;
+        api.sphere([gx, gy, gz], [23, 20, 0], [0.38, 0.38, 0.38], mat(M.ceramic, { tex: tex.sky, spec: 0.4, shin: 60 }));
+        api.mesh('tel:ring', () => G.tube((t) => [Math.cos(t * Math.PI * 2) * 0.5, Math.sin(t * Math.PI * 2) * 0.5, 0], () => 0.02, 96, 10, false), [gx, gy, gz], [0, 25, 0], [0.44, 0.44, 0.44], BRASS);
 
-        /* --- 醤油差し（白磁・朱の蓋） --- */
-        const ss = 0.34;
-        api.lathe('tofu:shoyu', shoyuProf, [SHOYU.x, 0, SHOYU.z], [0, 0, 0], [ss, ss, ss], mat(M.ceramic, { tex: tex.shoyuSide, spec: 0.55 }));
-        api.lathe('tofu:shoyuLid', lidProf, [SHOYU.x, 0.6 * ss, SHOYU.z], [0, 0, 0], [ss, ss, ss], mat(M.ceramic, { color: [0.7, 0.2, 0.16] }));
-        api.mesh('tofu:spout', () => G.tube((t) => [0.3 + t * 0.2, 0.36 + t * 0.14 + 0.05 * t * t, 0], (t) => 0.05 - 0.02 * t, 16, 14, true),
-          [SHOYU.x, 0, SHOYU.z], [0, 150, 0], [ss, ss, ss], mat(M.ceramic, { color: WHITE }));
-
-        /* --- 湯のみ（青磁・緑茶） --- */
-        const ys = 0.27;
-        api.lathe('tofu:yunomi', yunomiProf, [YUNOMI.x, 0, YUNOMI.z], [0, 0, 0], [ys, ys, ys], mat(M.ceramic, { tex: tex.seiji, spec: 0.55 }));
-        api.cylinder([YUNOMI.x, 0.84 * ys, YUNOMI.z], [0, 0, 0], [0.72 * ys, 0.001, 0.72 * ys], mat(M.glossyFood, { color: [0.62, 0.66, 0.28], part: 'TOP', spec: 0.4 }));
+        /* --- 星座早見盤（机に寝かせる） --- */
+        api.lathe('tel:disc', discProf, [DISC.x, 0, DISC.z], [0, 0, 0], [0.44, 0.44, 0.44], mat(M.matte, { color: [0.2, 0.26, 0.46] }));
+        api.cylinder([DISC.x, 0.027, DISC.z], [0, -20, 0], [0.4, 0.002, 0.4], mat(M.matte, { tex: tex.planisphere, part: 'TOP' }));
 
         /* --- 卓上カレンダー --- */
         cal.draw(api, CAL);
         cal.shadow(api, CAL);
 
         /* --- 接地の暗がり --- */
-        K.shadow(api, nx, nz, 1.05, 1.0, 0, 0.45);
-        K.shadow(api, YAKKO.x, YAKKO.z, 0.8, 0.72, 0, 0.35);
-        K.shadow(api, SHOYU.x, SHOYU.z, 0.3, 0.28, 0, 0.4);
-        K.shadow(api, YUNOMI.x, YUNOMI.z, 0.36, 0.34, 0, 0.4);
+        K.shadow(api, sx, sz, 0.66, 0.62, 0, 0.35);
+        K.shadow(api, gx, gz, 0.4, 0.38, 0, 0.45);
+        K.shadow(api, DISC.x, DISC.z, 0.52, 0.5, 0, 0.35);
 
-        /* --- 半透明：だし（奥）→ 湯気 → アクスタ --- */
         stand.shadow(api, P);
         api.blend(true);
-        if (api.mode === 0) {
-          api.cylinder([nx, 0.3 * ns, nz], [0, 0, 0], [0.878 * ns, 0.001, 0.878 * ns], { part: 'TOP', color: [0.86, 0.78, 0.58], alpha: 0.55, spec: 0.6, shin: 80 });
-          const ry = Math.atan2(eye[0] - nx, eye[2] - nz) * 180 / Math.PI;
-          api.panel([nx - 0.05, 0.75, nz], [0, ry, 0], [0.7, 0.8], { tex: tex.steam, unlit: true, alpha: 0.55 });
-          api.panel([nx + 0.12, 0.85, nz - 0.05], [0, ry, 8], [0.5, 0.8], { tex: tex.steam, unlit: true, alpha: 0.4 });
-        }
         stand.draw(api, P);
         api.blend(false);
       }
     });
     stand.free(); cal.free(); K.free();
 
-    // 障子ごしのやわらかい朝の光（左上から、ごく弱く）
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    const lg = ctx.createRadialGradient(W * 0.1, H * 0.05, 0, W * 0.1, H * 0.05, W * 0.85);
-    lg.addColorStop(0, 'rgba(255,246,225,0.18)'); lg.addColorStop(1, 'rgba(255,246,225,0)');
-    ctx.fillStyle = lg; ctx.fillRect(0, 0, W, H);
-    ctx.restore();
-    E.drawVignette(ctx, W, H, 0.14);
-    E.drawGrain(ctx, W, H, 0.025, 102, 2);
+    E.drawVignette(ctx, W, H, 0.12);
+    E.drawGrain(ctx, W, H, 0.024, 102, 2);
   }
 });
 
 /* =========================================================================
- *  テクスチャ（すべてコードで描く）
+ *  テクスチャ
  * ====================================================================== */
 function makeTextures(E) {
   const T = {}, C = E.newCanvas;
+  const star = (x, cx, cy, s) => { x.beginPath(); for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 - Math.PI / 2, rr = k % 2 ? s * 0.45 : s; x.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } x.fill(); };
 
-  // ちゃぶ台の天板：栗色の木目（同心の年輪をゆるく）
+  // 星柄の壁紙：深い紺に金の小さな星（粗く大きめ）
   {
-    const S = 1024, c = C(S, S), x = c.getContext('2d'), r = E.rnd(21);
-    x.fillStyle = '#9a6a42'; x.fillRect(0, 0, S, S);
-    for (let i = 0; i < 46; i++) {
-      x.strokeStyle = i % 3 === 0 ? 'rgba(92,56,30,0.28)' : 'rgba(196,146,98,0.22)';
-      x.lineWidth = 3 + r() * 6;
-      x.beginPath();
-      for (let px = -20; px <= S + 20; px += 24) x.lineTo(px, i * 23 + Math.sin(px * 0.006 + i * 0.7) * 16);
-      x.stroke();
-    }
-    E.drawGrain(x, S, S, 0.05, 4, 3);
-    T.table = c;
+    const S = 512, c = C(S, S), x = c.getContext('2d'), r = E.rnd(22);
+    x.fillStyle = '#2a3a66'; x.fillRect(0, 0, S, S);
+    x.fillStyle = '#e8c878';
+    for (let i = 0; i < 14; i++) star(x, r() * S, r() * S, 8 + r() * 8);
+    x.fillStyle = 'rgba(232,200,120,0.6)';
+    for (let i = 0; i < 30; i++) { x.beginPath(); x.arc(r() * S, r() * S, 2.5, 0, 7); x.fill(); }
+    T.wall = c;
   }
-  // 障子：白い和紙と木の組子（粗めの格子）。下は板の腰
+  // 窓：朝の空に白い月、下に街の屋根
   {
-    const Wd = 512, Ht = 768, c = C(Wd, Ht), x = c.getContext('2d');
+    const Wd = 900, Ht = 600, c = C(Wd, Ht), x = c.getContext('2d');
     const g = x.createLinearGradient(0, 0, 0, Ht);
-    g.addColorStop(0, '#fbf7ec'); g.addColorStop(1, '#f1e9d6');
+    g.addColorStop(0, '#9cc6ea'); g.addColorStop(0.7, '#e6eef4'); g.addColorStop(1, '#fbeedc');
     x.fillStyle = g; x.fillRect(0, 0, Wd, Ht);
-    x.fillStyle = '#b08a62';
-    const cols = 4, rows = 5, top = 0, bot = Ht * 0.8;
-    for (let i = 0; i <= cols; i++) x.fillRect(i * Wd / cols - (i === 0 || i === cols ? 0 : 5), top, i === 0 || i === cols ? 14 : 10, bot);
-    for (let j = 0; j <= rows; j++) x.fillRect(0, top + j * (bot - top) / rows - 5, Wd, 10);
-    x.fillStyle = '#9c7650'; x.fillRect(0, bot, Wd, Ht - bot);
-    x.fillStyle = 'rgba(70,45,25,0.25)'; x.fillRect(0, bot, Wd, 6);
-    x.fillStyle = '#8a6644'; x.fillRect(0, 0, 18, Ht);
-    T.shoji = c;
+    x.fillStyle = 'rgba(255,255,255,0.9)'; x.beginPath(); x.arc(640, 150, 46, 0, 7); x.fill();
+    x.fillStyle = '#bcd6ee'; x.beginPath(); x.arc(662, 138, 42, 0, 7); x.fill();
+    x.fillStyle = '#8a9ab4';
+    for (let i = 0; i < 9; i++) { const px = i * 110 - 20, h = 60 + (i * 37) % 70; x.fillRect(px, Ht - h, 90, h); x.beginPath(); x.moveTo(px - 8, Ht - h); x.lineTo(px + 45, Ht - h - 34); x.lineTo(px + 98, Ht - h); x.fill(); }
+    x.fillStyle = '#f5f2ea'; const fw = 22;
+    x.fillRect(0, 0, Wd, fw); x.fillRect(0, Ht - fw, Wd, fw); x.fillRect(0, 0, fw, Ht); x.fillRect(Wd - fw, 0, fw, Ht); x.fillRect(Wd / 2 - 8, 0, 16, Ht);
+    T.window = c;
   }
-  // 畳：い草の目（淡く）と縁
+  // 机：オーク
   {
-    const Wd = 512, Ht = 512, c = C(Wd, Ht), x = c.getContext('2d');
-    x.fillStyle = '#c9c28a'; x.fillRect(0, 0, Wd, Ht);
-    for (let i = 0; i < Ht; i += 8) { x.fillStyle = 'rgba(140,130,70,0.18)'; x.fillRect(0, i, Wd, 3); }
-    x.fillStyle = '#3d4a3a'; x.fillRect(0, 0, 24, Ht);
-    T.tatami = c;
-  }
-  // 土鍋の外側：飴色の釉薬が上から流れ、下は土の色（v=下→上）
-  {
-    const c = C(256, 256), x = c.getContext('2d'), r = E.rnd(33);
-    const g = x.createLinearGradient(0, 256, 0, 0);
-    g.addColorStop(0, '#c8a47a'); g.addColorStop(0.12, '#c8a47a'); g.addColorStop(0.2, '#5c3a26'); g.addColorStop(0.7, '#4a2c1c'); g.addColorStop(0.92, '#6a4630'); g.addColorStop(1, '#e8dcc4');
-    x.fillStyle = g; x.fillRect(0, 0, 256, 256);
-    for (let i = 0; i < 26; i++) {                       // 釉薬のたれ（粗く）
-      const px = r() * 256, len = 30 + r() * 40;
-      x.fillStyle = 'rgba(120,80,50,0.35)'; E.roundRect(x, px, 256 * 0.66, 6 + r() * 6, len, 4); x.fill();
+    const S = 1024, c = C(S, S), x = c.getContext('2d'), r = E.rnd(61);
+    const n = 6, pw = S / n;
+    for (let i = 0; i < n; i++) {
+      const b = 0.94 + r() * 0.1;
+      x.fillStyle = `rgb(${186 * b | 0},${138 * b | 0},${96 * b | 0})`; x.fillRect(0, i * pw, S, pw);
+      for (let k = 0; k < 6; k++) {
+        x.strokeStyle = r() > 0.5 ? 'rgba(120,78,46,0.22)' : 'rgba(225,185,140,0.2)'; x.lineWidth = 3 + r() * 4;
+        const y0 = i * pw + 8 + r() * (pw - 16); x.beginPath();
+        for (let px = 0; px <= S; px += 32) x.lineTo(px, y0 + Math.sin(px * 0.004 + k + i) * 6);
+        x.stroke();
+      }
+      x.fillStyle = 'rgba(80,50,28,0.4)'; x.fillRect(0, i * pw, S, 3);
     }
-    T.nabe = c;
+    T.desk = c;
   }
-  // 豆腐の肌：ほんのり黄みのある白
+  // 鏡筒：真鍮に黒い帯（接眼側・フード）（v=後→前）
   {
-    const c = C(128, 128), x = c.getContext('2d');
-    x.fillStyle = '#fbf8ef'; x.fillRect(0, 0, 128, 128);
-    E.drawGrain(x, 128, 128, 0.03, 9, 2);
-    T.tofu = c;
+    const c = C(32, 256), x = c.getContext('2d');
+    x.fillStyle = '#e8c27a'; x.fillRect(0, 0, 32, 256);
+    x.fillStyle = '#2a2a30'; x.fillRect(0, 256 - 40, 32, 40); x.fillRect(0, 0, 32, 26);
+    x.fillStyle = '#b08a48'; x.fillRect(0, 120, 32, 8); x.fillRect(0, 60, 32, 8);
+    T.tube = c;
   }
-  // 藍の丸皿：白地に藍の縁と見込みの輪、中央に青海波を粗く（lathe の v=輪郭方向）
+  // 天球儀：紺の天球に金の星と星座の線、黄道の帯
   {
-    const c = C(64, 512), x = c.getContext('2d');
-    x.fillStyle = '#f2f0ea'; x.fillRect(0, 0, 64, 512);
-    x.fillStyle = '#2e4478';
-    x.fillRect(0, 0, 64, 120);                           // 見込み〜内側（上側 = 輪郭の後半）
-    x.fillStyle = '#f2f0ea'; x.fillRect(0, 44, 64, 10);
-    x.fillStyle = '#3a5590'; x.fillRect(0, 170, 64, 60);  // 縁
-    T.aiPlate = c;
-  }
-  // 青じそ：緑に葉脈（中心線と左右の支脈）
-  {
-    const c = C(256, 256), x = c.getContext('2d');
-    x.fillStyle = '#4f8a3c'; x.fillRect(0, 0, 256, 256);
-    x.strokeStyle = 'rgba(190,225,160,0.7)'; x.lineWidth = 4;
-    x.beginPath(); x.moveTo(128, 0); x.lineTo(128, 256); x.stroke();
-    x.lineWidth = 2.5;
-    for (let i = 1; i < 7; i++) { const y = i * 36; x.beginPath(); x.moveTo(128, y); x.quadraticCurveTo(170, y - 10, 250, y - 30); x.moveTo(128, y); x.quadraticCurveTo(86, y - 10, 6, y - 30); x.stroke(); }
-    T.shiso = c;
-  }
-  // 刻みねぎ：黄緑と濃い緑の小さな輪（粗く大きめに）
-  {
-    const c = C(128, 128), x = c.getContext('2d'), r = E.rnd(5);
-    x.fillStyle = '#9cc46a'; x.fillRect(0, 0, 128, 128);
-    for (let i = 0; i < 30; i++) {
-      x.strokeStyle = r() > 0.5 ? '#3f7a2c' : '#dfeec0'; x.lineWidth = 4;
-      x.beginPath(); x.arc(r() * 128, r() * 128, 6 + r() * 4, 0, 7); x.stroke();
+    const Wd = 1024, Ht = 512, c = C(Wd, Ht), x = c.getContext('2d'), r = E.rnd(8);
+    x.fillStyle = '#1f3566'; x.fillRect(0, 0, Wd, Ht);
+    x.strokeStyle = 'rgba(232,200,120,0.5)'; x.lineWidth = 3;
+    for (let i = 1; i < 6; i++) { x.beginPath(); x.moveTo(0, i * Ht / 6); x.lineTo(Wd, i * Ht / 6); x.stroke(); }
+    for (let i = 0; i < 12; i++) { x.beginPath(); x.moveTo(i * Wd / 12, 0); x.lineTo(i * Wd / 12, Ht); x.stroke(); }
+    x.strokeStyle = '#c8923a'; x.lineWidth = 16; x.beginPath();
+    for (let px = 0; px <= Wd; px += 16) x.lineTo(px, Ht / 2 + Math.sin(px / Wd * Math.PI * 2) * 90); x.stroke();
+    x.strokeStyle = 'rgba(255,240,200,0.7)'; x.lineWidth = 3; x.fillStyle = '#ffe8a8';
+    for (let k = 0; k < 7; k++) {
+      let px = 60 + r() * (Wd - 120), py = 80 + r() * (Ht - 160);
+      x.beginPath(); x.moveTo(px, py);
+      const pts = [[px, py]];
+      for (let j = 0; j < 4; j++) { px += (r() - 0.5) * 120; py += (r() - 0.5) * 90; x.lineTo(px, py); pts.push([px, py]); }
+      x.stroke();
+      for (const [qx, qy] of pts) star(x, qx, qy, 9);
     }
-    T.negi = c;
+    T.sky = c;
   }
-  // 醤油差しの胴：白磁に藍の線（v=下→上）
+  // 星座早見盤：紺の星図、窓の楕円、外周の目盛り
   {
-    const c = C(64, 256), x = c.getContext('2d');
-    x.fillStyle = '#f7f6f1'; x.fillRect(0, 0, 64, 256);
-    x.fillStyle = '#2e4478'; x.fillRect(0, 118, 64, 8); x.fillRect(0, 150, 64, 4);
-    T.shoyuSide = c;
-  }
-  // 湯のみ：青磁（下ほど濃い釉だまり）、口縁は薄く
-  {
-    const c = C(64, 256), x = c.getContext('2d');
-    const g = x.createLinearGradient(0, 256, 0, 0);
-    g.addColorStop(0, '#b89a78'); g.addColorStop(0.05, '#6f9a8a'); g.addColorStop(0.3, '#8fb8a6'); g.addColorStop(0.55, '#b4d2c2'); g.addColorStop(0.62, '#e2eee6'); g.addColorStop(1, '#8fb8a6');
-    x.fillStyle = g; x.fillRect(0, 0, 64, 256);
-    T.seiji = c;
-  }
-  // 湯気
-  {
-    const Wd = 256, Ht = 512, c = C(Wd, Ht), x = c.getContext('2d'), r = E.rnd(3);
-    x.filter = 'blur(14px)';
-    for (let i = 0; i < 14; i++) {
-      const t = i / 14, y = Ht * (0.92 - t * 0.85), cx = Wd / 2 + Math.sin(t * 6 + 1) * 40;
-      x.globalAlpha = 0.42 * Math.sin(t * Math.PI) + 0.06;
-      x.fillStyle = '#ffffff';
-      x.beginPath(); x.ellipse(cx + (r() - 0.5) * 20, y, 26 + t * 30, 40, 0, 0, 7); x.fill();
-    }
-    x.filter = 'none';
-    T.steam = c;
+    const S = 512, c = C(S, S), x = c.getContext('2d'), cx = S / 2, r = E.rnd(5);
+    x.fillStyle = '#e9e1cc'; x.fillRect(0, 0, S, S);
+    x.fillStyle = '#1f3566'; x.beginPath(); x.ellipse(cx, cx + 10, S * 0.36, S * 0.3, 0, 0, 7); x.fill();
+    x.fillStyle = '#ffe8a8';
+    for (let i = 0; i < 26; i++) star(x, cx + (r() - 0.5) * S * 0.6, cx + 10 + (r() - 0.5) * S * 0.48, 5 + r() * 5);
+    x.strokeStyle = '#233a6b'; x.lineWidth = 4;
+    for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2; x.beginPath(); x.moveTo(cx + Math.cos(a) * S * 0.44, cx + Math.sin(a) * S * 0.44); x.lineTo(cx + Math.cos(a) * S * 0.49, cx + Math.sin(a) * S * 0.49); x.stroke(); }
+    x.fillStyle = '#233a6b'; x.font = '700 30px "Oswald",sans-serif'; x.textAlign = 'center'; x.fillText('STAR FINDER', cx, S * 0.14);
+    T.planisphere = c;
   }
   return T;
 }
+
 /* =========================================================================
  *  メッシュを初めて描くときの保険
  *   基幹の api.mesh / lathe / rbox は、その描画（render 1回）で初めて使う形のとき、

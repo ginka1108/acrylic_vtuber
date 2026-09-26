@@ -1,7 +1,7 @@
 /* =========================================================================
  *  10/11 「リンゴの唄」の日（1945年のこの日、映画『そよかぜ』が公開され、主題歌「リンゴの唄」が広まった）
- *  昭和レトロな部屋。花柄の壁紙、チークのテーブルに、ふたを開けたポータブルレコードプレーヤー、
- *  籐のかごに盛ったりんご、ひとつだけ置いたりんご、卓上カレンダーの横にアクスタを置く。
+ *  昭和レトロな部屋。花柄の壁紙、チークのテーブル。主役はふたを開けたポータブルレコードプレーヤーで、
+ *  盤面にりんごを描いたピクチャーレコードをのせる。ひとつだけ置いたりんご、卓上カレンダーの横にアクスタを置く。
  *  単位: アクスタの板の高さ 1.0 ≒ 15cm
  * ====================================================================== */
 (function () {
@@ -27,12 +27,11 @@ OhaV.defineTheme({
     const mat = (base, o) => Object.assign({}, base, o);
 
     /* ---------- 配置 ---------- */
-    const P = { x: -0.04, z: 0.04, yaw: 12 };            // アクスタ
-    const PLAYER = { x: 0.68, z: -1.35, yaw: -16 };        // レコードプレーヤー（右奥）
-    const BASKET = { x: -0.6, z: 0.1 };                // りんごのかご（左手前）
-    const APPLE = { x: 0.56, z: -0.02 };                  // ひとつのりんご（右手前）
-    const CAL = { x: -0.8, z: -1.12, yaw: 22 };           // 卓上カレンダー（左奥）
-    const eye = [0.3, 1.3, 2.75], at = [0.02, 0.48, -0.1];
+    const P = { x: -0.2, z: 0.1, yaw: 10 };            // アクスタ
+    const PLAYER = { x: 0.44, z: -0.86, yaw: -22, s: 1.36 };  // レコードプレーヤー（右。主役なので大きく）
+        const APPLE = { x: 0.36, z: 0.42 };                  // ひとつのりんご（左手前）
+    const CAL = { x: -0.8, z: -0.62, yaw: 24 };           // 卓上カレンダー（左奥）
+    const eye = [0.12, 1.3, 2.75], at = [-0.1, 0.48, -0.1];
     const focus = Math.hypot(eye[0] - P.x, eye[1] - 0.6, eye[2] - P.z);
     const APPLE_M = mat(M.glossyFood, { tex: tex.apple, spec: 0.7, shin: 90, rim: 0.2 });
     const STEM = mat(M.wood, { color: [0.4, 0.26, 0.14] });
@@ -61,10 +60,6 @@ OhaV.defineTheme({
       api.mesh('ap:stem', () => G.tube((t) => [0.03 * t * t, t * 0.22, 0], (t) => 0.03 - 0.01 * t, 12, 8, true), [tx, ty - 0.03 * s, tz], [tl, ry, 0], [s, s, s], STEM);
       if (leaf) api.mesh('ap:leaf', leafGeo, [tx, ty + 0.08 * s, tz], [tl - 10, ry + 40, 0], [s * 0.36, s * 0.36, s * 0.46], LEAF);
     };
-    // 籐のかご：厚みのある縁
-    const basketProf = [[0, 0.01], [0.3, 0.01], [0.32, 0, 1], [0.36, 0.02], [0.46, 0.2], [0.5, 0.34], [0.52, 0.36], [0.5, 0.38], [0.47, 0.36],
-      [0.43, 0.2], [0.34, 0.07], [0, 0.06]];
-
     const safe = guardApi();                           // 初めて描く形の影の乱れを防ぐ（下の guardApi を参照）
     S.render(ctx, {
       W, H, clear: [0.93, 0.88, 0.8], ambient: 0.55, light: [0.4, 0.86, 0.55], lightCol: [1.08, 1.05, 1.0],
@@ -77,49 +72,44 @@ OhaV.defineTheme({
         /* --- チークのテーブル --- */
         api.box([0, -0.05, -0.6], [0, 0, 0], [6.4, 0.1, 4.4], mat(M.wood, { tex: tex.table, face: S.FACE.TOP, edge: [0.45, 0.28, 0.16], uvScale: [2, 1] }));
 
-        /* --- ポータブルレコードプレーヤー --- */
-        const px = PLAYER.x, pz = PLAYER.z, py = PLAYER.yaw, pr = py * Math.PI / 180;
-        const at3 = (lx, ly, lz) => [px + Math.cos(pr) * lx + Math.sin(pr) * lz, ly, pz - Math.sin(pr) * lx + Math.cos(pr) * lz];
+        /* --- ポータブルレコードプレーヤー（主役。大きく手前に） --- */
+        const px = PLAYER.x, pz = PLAYER.z, py = PLAYER.yaw, pr = py * Math.PI / 180, Q = PLAYER.s;
+        const at3 = (lx, ly, lz) => [px + (Math.cos(pr) * lx + Math.sin(pr) * lz) * Q, ly * Q, pz + (-Math.sin(pr) * lx + Math.cos(pr) * lz) * Q];
+        const CASE = mat(M.plastic, { tex: tex.caseSide, spec: 0.35, shin: 50 });
         const cw = 0.92, cd = 0.68, chh = 0.17;
-        api.rbox(at3(0, chh / 2, 0), [0, py, 0], [cw, chh, cd], mat(M.plastic, { tex: tex.caseSide, round: 0.12, spec: 0.35, shin: 50 }));
-        api.box(at3(0, chh + 0.002, 0), [0, py, 0], [cw - 0.06, 0.004, cd - 0.06], mat(M.plastic, { color: [0.93, 0.9, 0.82], spec: 0.3 }));
+        api.rbox(at3(0, chh / 2, 0), [0, py, 0], [cw * Q, chh * Q, cd * Q], mat(CASE, { round: 0.12 }));
+        api.box(at3(0, chh + 0.002, 0), [0, py, 0], [(cw - 0.06) * Q, 0.004, (cd - 0.06) * Q], mat(M.plastic, { color: [0.93, 0.9, 0.82], spec: 0.3 }));
         // ふた（奥の辺で開いて立つ。内側にスピーカーの網）
-        api.rbox(at3(0, chh + 0.33, -cd / 2 - 0.02), [-8, py, 0], [cw, 0.66, 0.05], mat(M.plastic, { tex: tex.caseSide, round: 0.12, spec: 0.35, shin: 50 }));
-        api.panel(at3(0, chh + 0.33, -cd / 2 + 0.01), [8, py, 0], [cw - 0.14, 0.52], mat(M.matte, { tex: tex.grill, sharp: true }));
-        // ターンテーブルとレコード
+        api.rbox(at3(0, chh + 0.33, -cd / 2 - 0.02), [-8, py, 0], [cw * Q, 0.66 * Q, 0.05 * Q], mat(CASE, { round: 0.12 }));
+        api.panel(at3(0, chh + 0.33, -cd / 2 + 0.012), [8, py, 0], [(cw - 0.14) * Q, 0.52 * Q], mat(M.matte, { tex: tex.grill, sharp: true }));
+        // 手前の金具（ふたの留め金）と取っ手の付け根
+        for (const sx of [-0.3, 0.3]) api.rbox(at3(sx, chh * 0.62, cd / 2 + 0.004), [0, py, 0], [0.07 * Q, 0.04 * Q, 0.02 * Q], mat(M.metal, { color: [0.82, 0.83, 0.85], round: 0.3 }));
+        // ターンテーブルとレコード（りんごのピクチャー盤）
         const tt = at3(-0.1, chh + 0.004, 0.02);
-        api.cylinder([tt[0], tt[1] + 0.015, tt[2]], [0, 0, 0], [0.56, 0.03, 0.56], mat(M.metal, { color: [0.72, 0.74, 0.76] }));
-        api.cylinder([tt[0], tt[1] + 0.034, tt[2]], [0, 30, 0], [0.54, 0.008, 0.54], mat(M.plastic, { tex: tex.record, spec: 0.6, shin: 90 }));
-        api.cylinder([tt[0], tt[1] + 0.05, tt[2]], [0, 0, 0], [0.012, 0.03, 0.012], mat(M.metal, { color: [0.8, 0.8, 0.82] }));
+        api.cylinder([tt[0], tt[1] + 0.015 * Q, tt[2]], [0, 0, 0], [0.56 * Q, 0.03 * Q, 0.56 * Q], mat(M.metal, { color: [0.72, 0.74, 0.76] }));
+        api.cylinder([tt[0], tt[1] + 0.034 * Q, tt[2]], [0, py + 8, 0], [0.54 * Q, 0.008 * Q, 0.54 * Q], mat(M.plastic, { tex: tex.record, spec: 0.55, shin: 90 }));
+        api.cylinder([tt[0], tt[1] + 0.05 * Q, tt[2]], [0, 0, 0], [0.012 * Q, 0.03 * Q, 0.012 * Q], mat(M.metal, { color: [0.8, 0.8, 0.82] }));
         // トーンアーム（支柱から弧を描いてレコードの外周へ）
-        const base = at3(0.3, chh + 0.004, -0.18);
-        api.cylinder([base[0], base[1] + 0.03, base[2]], [0, 0, 0], [0.07, 0.06, 0.07], mat(M.metal, { color: [0.6, 0.62, 0.64] }));
-        api.mesh('ap:arm', () => G.tube((t) => [-0.2 * t - 0.04 * Math.sin(t * Math.PI), 0.02 * Math.sin(t * Math.PI), 0.3 * t], () => 0.01, 24, 8, true),
-          [base[0], base[1] + 0.06, base[2]], [0, py, 0], [1, 1, 1], mat(M.metal, { color: [0.82, 0.83, 0.85] }));
-        const head = at3(0.1, chh + 0.056, 0.12);
-        api.rbox(head, [0, py - 30, 0], [0.04, 0.02, 0.07], mat(M.plastic, { color: [0.15, 0.15, 0.16], round: 0.2 }));
+        const base = at3(0.3, chh + 0.004, -0.2);
+        api.cylinder([base[0], base[1] + 0.03 * Q, base[2]], [0, 0, 0], [0.07 * Q, 0.06 * Q, 0.07 * Q], mat(M.metal, { color: [0.6, 0.62, 0.64] }));
+        api.mesh('ap:arm', () => G.tube((t) => [-0.14 * t - 0.03 * Math.sin(t * Math.PI), 0.02 * Math.sin(t * Math.PI), 0.3 * t], () => 0.01, 24, 8, true),
+          [base[0], base[1] + 0.06 * Q, base[2]], [0, py, 0], [Q, Q, Q], mat(M.metal, { color: [0.82, 0.83, 0.85] }));
+        const head = at3(0.16, chh + 0.07, 0.1);
+        api.rbox(head, [0, py - 20, 0], [0.04 * Q, 0.02 * Q, 0.07 * Q], mat(M.plastic, { color: [0.15, 0.15, 0.16], round: 0.2 }));
         // つまみ
-        for (const kx of [0.3, 0.38]) api.lathe('ap:knob', [[0, 0], [0.5, 0], [0.5, 0.6], [0.4, 1], [0, 1]], at3(kx, chh + 0.004, 0.22), [0, 0, 0], [0.05, 0.03, 0.05],
+        for (const kx of [0.3, 0.38]) api.lathe('ap:knob', [[0, 0], [0.5, 0], [0.5, 0.6], [0.4, 1], [0, 1]], at3(kx, chh + 0.004, 0.24), [0, 0, 0], [0.05 * Q, 0.03 * Q, 0.05 * Q],
           mat(M.plastic, { color: [0.93, 0.88, 0.76], spec: 0.4 }));
 
-        /* --- 籐のかごとりんご --- */
-        const bx = BASKET.x, bz = BASKET.z, bs = 0.58;
-        api.lathe('ap:basket', basketProf, [bx, 0, bz], [0, 0, 0], [bs, bs, bs], mat(M.matte, { tex: tex.wicker, spec: 0.1 }));
-        const as = 0.2;
-        for (const [ax, ay, az, ry, tl] of [[-0.09, 0.07, 0.03, 20, 8], [0.09, 0.07, -0.04, 140, -6], [0.01, 0.07, 0.11, 260, 10], [0.0, 0.17, -0.01, 80, -4]])
-          apple(api, bx + ax, ay, bz + az, as, ry, tl, false);
-
         /* --- ひとつのりんご（葉つき） --- */
-        apple(api, APPLE.x, 0, APPLE.z, 0.24, 30, 0, true);
+        apple(api, APPLE.x, 0, APPLE.z, 0.26, 30, 0, true);
 
         /* --- 卓上カレンダー --- */
         cal.draw(api, CAL);
         cal.shadow(api, CAL);
 
         /* --- 接地の暗がり --- */
-        K.shadow(api, px, pz, 1.05, 0.8, py, 0.45);
-        K.shadow(api, bx, bz, 0.66, 0.62, 0, 0.45);
-        K.shadow(api, APPLE.x, APPLE.z, 0.3, 0.28, 0, 0.45);
+        K.shadow(api, px, pz, 1.05 * Q, 0.8 * Q, py, 0.45);
+        K.shadow(api, APPLE.x, APPLE.z, 0.32, 0.3, 0, 0.45);
 
         stand.shadow(api, P);
         api.blend(true);
@@ -199,14 +189,39 @@ function makeTextures(E) {
     x.fillStyle = '#c9a25a'; x.font = '700 22px "Oswald",sans-serif'; x.textAlign = 'center'; x.fillText('HI-FI', 128, 146);
     T.grill = c;
   }
-  // レコード：黒い盤面に太めの溝（淡く）と赤いラベル
+  // レコード：りんごを描いたピクチャー盤（クリーム地に大きな赤いりんご・葉・音符、外周に溝の帯）
   {
-    const S = 512, c = C(S, S), x = c.getContext('2d'), cx = S / 2;
+    const S = 1024, c = C(S, S), x = c.getContext('2d'), cx = S / 2;
     x.fillStyle = '#1c1c1e'; x.fillRect(0, 0, S, S);
-    for (let r = 70; r < 250; r += 14) { x.strokeStyle = 'rgba(90,90,96,0.35)'; x.lineWidth = 3; x.beginPath(); x.arc(cx, cx, r, 0, 7); x.stroke(); }
-    x.fillStyle = '#c8322a'; x.beginPath(); x.arc(cx, cx, 64, 0, 7); x.fill();
-    x.fillStyle = '#f3e3c3'; x.beginPath(); x.arc(cx, cx - 30, 14, 0, 7); x.fill();       // ラベルのりんご印
-    x.fillStyle = '#1c1c1e'; x.beginPath(); x.arc(cx, cx, 6, 0, 7); x.fill();
+    x.fillStyle = '#f6e9cf'; x.beginPath(); x.arc(cx, cx, S * 0.47, 0, 7); x.fill();
+    // 外周の溝の帯（黒い輪を数本、太く淡く）
+    x.strokeStyle = 'rgba(40,30,30,0.85)'; x.lineWidth = 26; x.beginPath(); x.arc(cx, cx, S * 0.475, 0, 7); x.stroke();
+    x.strokeStyle = 'rgba(120,60,50,0.35)'; x.lineWidth = 6;
+    for (const r of [0.43, 0.4]) { x.beginPath(); x.arc(cx, cx, S * r, 0, 7); x.stroke(); }
+    // 背景の水玉
+    x.fillStyle = 'rgba(214,80,60,0.18)';
+    for (let a = 0; a < 16; a++) { const t = a / 16 * Math.PI * 2; x.beginPath(); x.arc(cx + Math.cos(t) * S * 0.34, cx + Math.sin(t) * S * 0.34, 16, 0, 7); x.fill(); }
+    // 大きなりんご（ハート形に近い丸み・つや・へた・葉）
+    const ay = cx + 30, aw = S * 0.25;
+    x.fillStyle = '#d8322a';
+    x.beginPath();
+    x.moveTo(cx, ay - aw * 0.62);
+    x.bezierCurveTo(cx + aw * 0.5, ay - aw * 0.95, cx + aw * 1.15, ay - aw * 0.6, cx + aw * 0.98, ay + aw * 0.1);
+    x.bezierCurveTo(cx + aw * 0.85, ay + aw * 0.75, cx + aw * 0.35, ay + aw * 1.0, cx, ay + aw * 0.82);
+    x.bezierCurveTo(cx - aw * 0.35, ay + aw * 1.0, cx - aw * 0.85, ay + aw * 0.75, cx - aw * 0.98, ay + aw * 0.1);
+    x.bezierCurveTo(cx - aw * 1.15, ay - aw * 0.6, cx - aw * 0.5, ay - aw * 0.95, cx, ay - aw * 0.62);
+    x.fill();
+    x.fillStyle = '#a81e1e'; x.beginPath(); x.ellipse(cx + aw * 0.45, ay + aw * 0.35, aw * 0.36, aw * 0.4, -0.5, 0, 7); x.fill();
+    x.fillStyle = 'rgba(255,240,230,0.85)'; x.beginPath(); x.ellipse(cx - aw * 0.5, ay - aw * 0.25, aw * 0.12, aw * 0.26, 0.5, 0, 7); x.fill();
+    x.strokeStyle = '#5a3420'; x.lineWidth = 16; x.lineCap = 'round';
+    x.beginPath(); x.moveTo(cx, ay - aw * 0.55); x.quadraticCurveTo(cx + 8, ay - aw * 0.85, cx + 30, ay - aw * 1.0); x.stroke();
+    x.fillStyle = '#5a9a3a'; x.beginPath(); x.ellipse(cx + aw * 0.36, ay - aw * 0.9, aw * 0.3, aw * 0.13, -0.5, 0, 7); x.fill();
+    // 音符（大きく2つ）
+    x.fillStyle = '#3a2a2a';
+    const note = (nx, ny, s) => { x.beginPath(); x.ellipse(nx, ny, s, s * 0.75, -0.4, 0, 7); x.fill(); x.fillRect(nx + s * 0.75, ny - s * 3.2, s * 0.3, s * 3.2); x.fillRect(nx + s * 0.75, ny - s * 3.2, s * 1.3, s * 0.4); };
+    note(cx - S * 0.3, cx - S * 0.12, 26); note(cx + S * 0.28, cx - S * 0.2, 22);
+    // 中心穴（黒）
+    x.fillStyle = '#1c1c1e'; x.beginPath(); x.arc(cx, cx, 14, 0, 7); x.fill();
     T.record = c;
   }
   // 籐（編み目を粗く）
