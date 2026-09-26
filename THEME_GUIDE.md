@@ -14,7 +14,9 @@
 | 3 | 近い雰囲気の既存テーマ `assets/themes/2026-09-26〜2026-10-01/theme.js` | 作り込みの基準（この水準が最低ライン） |
 | 4 | `core/engine.js` の該当部分 | 部品の細かい使い方が必要なときだけ（`GEN` `MAT` `props` `acrylicStand` `dateProp`） |
 
-作業フォルダは利用者のPCの「毎日おはV」フォルダ（デスクトップ）。完成したファイルはそこへ書き戻す。
+作業フォルダは利用者のPCのローカルリポジトリ **`/Users/kannosatoshi/Documents/GitHub/acrylic_vtuber`**
+（GitHub: `ginka1108/acrylic_vtuber`、GitHub Pages で公開）。完成したファイルはそこへ書き戻す。
+コミットとプッシュは利用者が GitHub Desktop で行う（チャット側では git 操作をしない）。
 
 ---
 
