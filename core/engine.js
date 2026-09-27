@@ -219,10 +219,12 @@ void main(){
   fragColor = sum / ws;
 }`;
 const FS_DOF = FS_HEAD + `
-uniform sampler2D u_sharp, u_blur, u_coc;
+uniform sampler2D u_sharp, u_blur, u_coc; uniform float u_transparent;
 void main(){
   float coc = texture(u_coc, v_uv).r;
-  fragColor = vec4(mix(texture(u_sharp, v_uv).rgb, texture(u_blur, v_uv).rgb, clamp(coc, 0.0, 1.0)), 1.0);
+  vec4 c = mix(texture(u_sharp, v_uv), texture(u_blur, v_uv), clamp(coc, 0.0, 1.0));
+  // 透過出力（opt.transparent）：中身は premultiplied なので、キャンバス用にストレートアルファへ戻す
+  fragColor = u_transparent > 0.5 ? vec4(c.a > 0.0 ? c.rgb / c.a : vec3(0.0), c.a) : vec4(c.rgb, 1.0);
 }`;
 
 /* 線画：法線と奥行きの差から物の輪郭・折れ目を拾い、その場所の色を暗くして線にする。
@@ -745,7 +747,8 @@ const Stage3D = (() => {
   /* opt: {
    *   W, H, clear, camera:{eye,at,fov,focus,dofScale,blur}, draw(api),
    *   light:[x,y,z]（光の来る方向）, lightCol, ambient, sky, ground（半球環境光）,
-   *   envTop, envBot（金属・縁の映り込み色）, shadow:{ size, center, strength }
+   *   envTop, envBot（金属・縁の映り込み色）, shadow:{ size, center, strength },
+   *   transparent（true で背景を透明のまま出力。ctx に描いてある絵の上に重なる。カスタム背景用）
    * }
    * draw(api) は「影（mode 2）」「カラー（mode 0）」「被写界深度（mode 1）」の3回呼ばれる。 */
   function render(ctx, opt) {
@@ -916,7 +919,7 @@ const Stage3D = (() => {
       gl.useProgram(prog);
       gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true);
       gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
-      gl.clearColor(clear[0], clear[1], clear[2], 1);
+      gl.clearColor(clear[0], clear[1], clear[2], clear.length > 3 ? clear[3] : 1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       opt.draw(api);
       gl.disable(gl.BLEND); gl.depthMask(true);
@@ -938,7 +941,7 @@ const Stage3D = (() => {
     // 2) カラー / 3) 被写界深度
     const fC = GLX.fbo(RW, RH, true), fZ = GLX.fbo(W, H, true), fA = GLX.fbo(W, H), fB = GLX.fbo(W, H);
     trash.push(fC, fZ, fA, fB);
-    runPass(fC, 0, opt.clear || [0.1, 0.1, 0.1]);
+    runPass(fC, 0, opt.transparent ? [0, 0, 0, 0] : (opt.clear || [0.1, 0.1, 0.1]));
     runPass(fZ, 1, [1, 1, 1]);
     let sharp = fC;
     if (st.line > 0) {                           // 線画（ぼかしの前に入れて、奥の線は一緒にぼける）
@@ -954,9 +957,9 @@ const Stage3D = (() => {
     GLX.pass(pBlur, { u_tex: { tex: fA.tex }, u_dir: [0, 1], u_radius: br }, fB);
     if (st.paint > 0) {
       const fD = GLX.fbo(RW, RH); trash.push(fD);
-      GLX.pass(pDof, { u_sharp: { tex: sharp.tex }, u_blur: { tex: fB.tex }, u_coc: { tex: fZ.tex } }, fD);
+      GLX.pass(pDof, { u_sharp: { tex: sharp.tex }, u_blur: { tex: fB.tex }, u_coc: { tex: fZ.tex }, u_transparent: 0 }, fD);
       GLX.pass(GLX.program('paint', VS_FULL, FS_PAINT), { u_col: { tex: fD.tex }, u_coc: { tex: fZ.tex }, u_amount: st.paint }, null);
-    } else GLX.pass(pDof, { u_sharp: { tex: sharp.tex }, u_blur: { tex: fB.tex }, u_coc: { tex: fZ.tex } }, null);
+    } else GLX.pass(pDof, { u_sharp: { tex: sharp.tex }, u_blur: { tex: fB.tex }, u_coc: { tex: fZ.tex }, u_transparent: opt.transparent ? 1 : 0 }, null);
     currentStyle = st;
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(GLX.canvas, 0, 0, W, H);
@@ -1141,7 +1144,8 @@ function shadowCanvas(alpha) {
  *   返り値 { front, back, w, h }
  *     back : 裏面（立ち絵を印刷した面）… 立ち絵の色はそのまま
  *     front: 表面（透明アクリルの縁とツヤだけ）
- *   opt: { w, h, box, margin, tabW, tabH, tabX, rim, gloss(反射の強さ 既定1) }（px。w:h が板の縦横比になる） */
+ *   opt: { w, h, box, margin, tabW, tabH, tabX, rim, gloss(反射の強さ 既定1),
+ *          lightX(光の来る向き -1=左〜1=右。既定 -1＝左上から。縁の光とツヤの向きが変わる) }（px。w:h が板の縦横比になる） */
 function acrylicPlate(env, opt) {
   opt = opt || {};
   const W = opt.w || 720, H = opt.h || 1000;
@@ -1202,6 +1206,8 @@ function acrylicPlate(env, opt) {
   //   opt.gloss で全体の強さを調整（既定 1.0）。どの画素も白の重なりは最大でも約45%
   const front = newCanvas(W, H), fx = front.getContext('2d');
   const G = opt.gloss === undefined ? 1 : opt.gloss;
+  const LX = opt.lightX === undefined ? -1 : Math.max(-1, Math.min(1, opt.lightX));
+  const ex = Math.round(-LX * 4);                 // 縁の光のずらし量（左から光 → +4）
   const shifted = (dx, dy) => {           // mask − (dx,dy)ずらした mask ＝ 片側の縁
     const c = newCanvas(W, H), x = c.getContext('2d');
     x.drawImage(mask, 0, 0);
@@ -1217,12 +1223,12 @@ function acrylicPlate(env, opt) {
     fx.globalAlpha = a; fx.drawImage(c, 0, 0); fx.globalAlpha = 1;
   };
   tint(rim, '#f4fbff', 0.62 * Math.min(1, G));              // 縁全体（ごく薄い水色がかった白）
-  tint(shifted(4, 5), '#ffffff', 0.9 * Math.min(1, G));     // 左上側の縁が光る
-  tint(shifted(-4, -5), '#3a5a78', 0.28);                  // 右下側の縁の影（厚みの表現）
+  tint(shifted(ex, 5), '#ffffff', 0.9 * Math.min(1, G));    // 光の来る側（既定は左上）の縁が光る
+  tint(shifted(-ex, -5), '#3a5a78', 0.28);                 // 反対側の縁の影（厚みの表現）
   if (G > 0) {
     const gl2 = newCanvas(W, H), gx = gl2.getContext('2d');
     // ② 斜めのツヤ
-    const g = gx.createLinearGradient(W * 0.05, H * 0.3, W * 0.95, H * 0.98);   // 立ち絵の範囲を斜めに横切る
+    const g = gx.createLinearGradient(W * (0.5 + 0.45 * LX), H * 0.3, W * (0.5 - 0.45 * LX), H * 0.98);   // 立ち絵の範囲を斜めに横切る
     const st = (t, a) => g.addColorStop(t, `rgba(255,255,255,${Math.min(0.45, a * G)})`);
     st(0.00, 0); st(0.16, 0); st(0.24, 0.07); st(0.31, 0.15);      // 広い映り込み（なだらか）
     st(0.345, 0.34); st(0.36, 0.40); st(0.375, 0.30);               // 鋭いハイライト
@@ -1249,6 +1255,7 @@ function acrylicPlate(env, opt) {
  *     draw(api) { ...不透明物...; stand.shadow(api, P); api.blend(true); stand.draw(api, P); api.blend(false) }
  *     描画後に stand.free()
  *   P = { x, z, yaw, y(台座の置き面の高さ, 既定0) }
+ *   opt: { gloss, lightX（acrylicPlate と同じ）, baseColor }
  */
 function acrylicStand(env, opt) {
   opt = opt || {};
@@ -1256,7 +1263,7 @@ function acrylicStand(env, opt) {
   const plate = acrylicPlate(env, {
     w: PW * PPU, h: PH * PPU,
     box: { x: (PW - 0.74) / 2 * PPU, y: (PH - 1.0) * PPU + 20, w: 0.74 * PPU, h: 1.0 * PPU - 20 - 30 - 14 },
-    margin: 14, tabH: 30, tabW: 0.26 * PPU, rim: 5, gloss: opt.gloss === undefined ? 1 : opt.gloss
+    margin: 14, tabH: 30, tabW: 0.26 * PPU, rim: 5, gloss: opt.gloss === undefined ? 1 : opt.gloss, lightX: opt.lightX
   });
   // 台座の天面：縁が光る透明アクリル
   const top = newCanvas(256, 140), tx = top.getContext('2d');
@@ -1273,11 +1280,12 @@ function acrylicStand(env, opt) {
   const baseColor = opt.baseColor || [0.97, 0.98, 1.0];
   return {
     PW, PH, plate,
-    /* 接地影（api.mode===0 のときだけ描く） */
+    /* 接地影（api.mode===0 のときだけ描く）。P.shadow で濃さ、P.shadowOffset=[x,z] で影のずれ */
     shadow(api, P) {
       if (api.mode !== 0) return;
+      const off = P.shadowOffset || [0.03, -0.02];
       api.blend(true);
-      api.quad([P.x + 0.03, (P.y || 0) + 0.002, P.z - 0.02], [0, P.yaw || 0, 0], [0.95, 0.5], { tex: tex.shadow, unlit: true, alpha: P.shadow === undefined ? 0.8 : P.shadow });
+      api.quad([P.x + off[0], (P.y || 0) + 0.002, P.z + off[1]], [0, P.yaw || 0, 0], [0.95, 0.5], { tex: tex.shadow, unlit: true, alpha: P.shadow === undefined ? 0.8 : P.shadow });
       api.blend(false);
     },
     /* 台座と板。api.blend(true) の中で、他の半透明より先（奥）に呼ぶ */

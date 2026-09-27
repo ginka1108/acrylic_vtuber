@@ -13,7 +13,10 @@
 <body>
 <header class="top">
   <div class="brand">毎日おはV</div>
-  <nav class="days" id="days" aria-label="日付をえらぶ"></nav>
+  <div class="dayrow">
+    <nav class="days" id="days" aria-label="日付をえらぶ"></nav>
+    <button class="day custom" id="dayCustom" type="button" aria-current="false"><span class="d1">いつでも</span><span class="d2">カスタム</span><span class="d3">好きな背景で</span></button>
+  </div>
 </header>
 
 <main>
@@ -29,6 +32,19 @@
       <small>背景が透明なPNGがおすすめ</small>
     </button>
     <div class="spinner" id="spinner" hidden><i></i></div>
+  </div>
+
+  <div class="custom-panel" id="customPanel">
+    <div class="picked">
+      <img id="bgThumb" alt="">
+      <button class="mini" id="bgPick" type="button">背景をえらぶ</button>
+      <button class="mini" id="bgClear" type="button" hidden>背景をはずす</button>
+      <small id="bgState"></small>
+    </div>
+    <label class="row"><span>角度</span><input type="range" id="cYaw" min="-45" max="45" value="15"></label>
+    <label class="row"><span>光の向き</span><input type="range" id="cLight" min="-100" max="100" value="-60"></label>
+    <label class="row"><span>影</span><input type="range" id="cShadow" min="0" max="100" value="50"></label>
+    <label class="check"><input type="checkbox" id="cCaption" checked> 「Good Morning」の文字を入れる</label>
   </div>
 
   <div class="controls">
@@ -50,6 +66,7 @@
 </main>
 
 <input type="file" id="file" accept="image/*" hidden>
+<input type="file" id="bgFile" accept="image/*" hidden>
 <div class="toast" id="toast"></div>
 
 <script src="core/engine.js"></script>

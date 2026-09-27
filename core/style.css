@@ -19,8 +19,9 @@ body{
 }
 .brand{font-size:13px; font-weight:900; letter-spacing:.08em; color:var(--dim); padding:0 16px 6px; max-width:560px; margin:0 auto}
 /* ---- 日付タブ（今日から7日分） ---- */
+.dayrow{display:flex; align-items:stretch; max-width:560px; margin:0 auto; padding-right:16px}
 .days{
-  display:flex; gap:8px; overflow-x:auto; padding:2px 16px 4px; max-width:560px; margin:0 auto;
+  display:flex; gap:8px; overflow-x:auto; padding:2px 8px 4px 16px; flex:1 1 auto; min-width:0;
   scrollbar-width:none; -webkit-overflow-scrolling:touch; scroll-snap-type:x proximity;
 }
 .days::-webkit-scrollbar{display:none}
@@ -36,6 +37,10 @@ body{
 .day[aria-current="true"]{background:var(--accent); border-color:var(--accent)}
 .day[aria-current="true"] .d1,.day[aria-current="true"] .d3{color:var(--accent-ink)}
 .day:disabled{opacity:.45; cursor:default}
+/* カスタム：スクロールせずに右端に常に出る */
+.day.custom{margin:2px 0 4px; border-style:dashed; border-color:#c9ced6; position:relative}
+.day.custom::before{content:""; position:absolute; left:-9px; top:4px; bottom:4px; width:1px; background:var(--line)}
+.day.custom[aria-current="true"]{border-style:solid}
 .heading{display:flex; align-items:center; gap:10px; margin:2px 0 12px}
 .heading .date{
   background:var(--accent); color:var(--accent-ink); font-weight:900; font-size:13px;
@@ -81,7 +86,20 @@ main{max-width:560px; margin:0 auto; padding:14px 16px 40px}
   padding:12px 14px 6px; opacity:.45; pointer-events:none; transition:.2s;
 }
 .has-img .controls{opacity:1; pointer-events:auto}
+/* ---- カスタム（背景・角度・光） ---- */
+.custom-panel{
+  display:none; margin-top:14px; background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+  padding:12px 14px 8px;
+}
+.is-custom .custom-panel{display:block}
+.custom-panel small{font-size:12px; color:var(--dim); font-weight:700}
+.custom-panel .row span{width:64px}
+.check{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:var(--dim); margin:2px 0 4px; cursor:pointer}
+.check input{accent-color:var(--accent); width:18px; height:18px; margin:0}
+/* 背景なしのカスタム：透過が分かるように市松模様 */
+.stage.clear{background:repeating-conic-gradient(#e6e9ee 0 25%, #fff 0 50%) 0 0/24px 24px}
 .picked{display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap}
+.custom-panel .picked img:not([src]){display:none}
 .picked img{
   width:40px; height:40px; object-fit:contain; border-radius:8px; border:1px solid var(--line);
   background:repeating-conic-gradient(#eceff3 0 25%, #fff 0 50%) 0 0/12px 12px;

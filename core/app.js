@@ -9,6 +9,10 @@
  *  URLパラメータ（任意）
  *   ?date=YYYY-MM-DD   … 7日の範囲内の日を開く（範囲外は今日になる）
  *   ?dev&date=YYYY-MM-DD … 制作確認用。範囲の制限なしで、その日から7日分を並べる
+ *   ?date=custom       … カスタム（好きな背景の上にアクスタだけを置く）を開く
+ *
+ *  カスタム：日付タブの右端に常に出る。テーマ用の theme.js は使わず、このファイルの CUSTOM が描く。
+ *   背景は利用者の画像（なければ透過PNG）。調整は 大きさ/左右/上下（アクスタごと動く）＋ 角度・光の向き・影
  * ====================================================================== */
 (function () {
 'use strict';
@@ -125,7 +129,8 @@ const store = (() => {
 /* ---------------- アプリ ---------------- */
 const cv = $('preview');
 const ctx = cv.getContext('2d');
-const state = { theme: null, img: null, meta: null, adj: { scale: 1, dx: 0, dy: 0 }, blob: null, busy: false, again: false, failed: false };
+const state = { theme: null, img: null, meta: null, adj: { scale: 1, dx: 0, dy: 0 }, blob: null, busy: false, again: false, failed: false,
+                custom: null, bg: null };
 
 let toastT = 0;
 function toast(msg) {
@@ -232,7 +237,7 @@ async function render() {
     t.render(ctx, { W: cv.width, H: cv.height, img: state.img, meta: state.meta, adj: state.adj,
                     E, images: t.images, theme: t, date: t.date });
     // 共通ルール：画角内に「MM/DD」を入れる（E.dateProp）。使っていないテーマは開発者向けに警告
-    if (!E.dateUsed) console.warn('[ohav] このテーマは日付の小道具（E.dateProp）を使っていません: ' + t.date);
+    if (!E.dateUsed && !t.custom) console.warn('[ohav] このテーマは日付の小道具（E.dateProp）を使っていません: ' + t.date);
     // 共通キャプション（上：Good Morning / 下：英語の「◯◯の日」）。caption:false で無効
     if (t.caption !== false) {
       resetCtx();
@@ -255,7 +260,10 @@ let schedT = 0;
 function schedule() { clearTimeout(schedT); schedT = setTimeout(render, 260); }
 
 /* 出力 */
-function outName() { return `ohav-${state.theme.date}${state.theme.id ? '-' + state.theme.id : ''}.png`; }
+function outName() {
+  if (state.theme.custom) return `ohav-custom-${ymd(new Date()).replace(/-/g, '')}.png`;
+  return `ohav-${state.theme.date}${state.theme.id ? '-' + state.theme.id : ''}.png`;
+}
 function download(blob, name) {
   const url = URL.createObjectURL(blob), a = document.createElement('a');
   a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -284,6 +292,82 @@ function wireOutput() {
   };
 }
 
+/* ---------------- カスタム（好きな背景＋アクスタだけ） ----------------
+ * 背景画像を下に敷き、アクスタを透過で描いて重ねる。背景を選んでいなければ透過PNGになる。
+ * 大きさ/左右/上下はアクスタごと（カメラ側で）動かす。立ち絵は板の中で既定の位置のまま */
+const CUSTOM_KEY = 'custom';
+const CUSTOM_DEFAULT = { yaw: 15, light: -60, shadow: 50, caption: true };
+const CUSTOM = {
+  custom: true, date: CUSTOM_KEY, id: 'custom', title: 'カスタム', dayName: '', size: [1350, 1350],
+  adjustRange: { scale: [40, 200], x: [-50, 50], y: [-50, 50] },
+  render(ctx, env) {
+    const { E, W, H } = env, c = state.custom, bg = state.bg;
+    // 1) 背景（画面いっぱいに切り抜いて敷く）
+    if (bg) {
+      const iw = bg.naturalWidth, ih = bg.naturalHeight, k = Math.max(W / iw, H / ih);
+      const sw = W / k, sh = H / k;
+      ctx.drawImage(bg, (iw - sw) / 2, (ih - sh) / 2, sw, sh, 0, 0, W, H);
+    }
+    // 2) アクスタ（透過で重ねる）
+    const L = c.light / 100;                                  // -1 = 左から 〜 1 = 右から
+    const stand = E.acrylicStand(Object.assign({}, env, { adj: { scale: 1, dx: 0, dy: 0 } }), { lightX: L });
+    const P = { x: 0, z: 0, yaw: c.yaw, shadow: c.shadow / 100 * 0.8, shadowOffset: [0.03 - L * 0.1, -0.05] };
+    const a = env.adj, FOV0 = 25;           // 大きさ100%で、立ち絵が画面の高さの7割ほど
+    const fov = 2 * Math.atan(Math.tan(FOV0 * Math.PI / 360) / a.scale) * 180 / Math.PI;
+    const eye = [0, 1.02, 3.4], at = [0, 0.64, 0];
+    const dist = Math.hypot(eye[0] - at[0], eye[1] - at[1], eye[2] - at[2]);
+    const visH = 2 * dist * Math.tan(fov * Math.PI / 360), visW = visH * W / H;
+    eye[0] -= a.dx * visW; at[0] -= a.dx * visW;              // 右へ動かす＝カメラを左へ
+    eye[1] += a.dy * visH; at[1] += a.dy * visH;              // 下へ動かす＝カメラを上へ
+    try {
+      E.Stage3D.render(ctx, {
+        W, H, transparent: true, ambient: 0.55, light: [L * 0.9, 0.85, 0.55], lightCol: [1.05, 1.03, 1.0],
+        camera: { eye, at, fov, focus: dist, dofScale: 0, blur: 0 },
+        draw(api) {
+          stand.shadow(api, P);
+          api.blend(true); stand.draw(api, P); api.blend(false);
+        }
+      });
+    } finally { stand.free(); }
+  }
+};
+Object.defineProperty(CUSTOM, 'caption', { get: () => (state.custom && state.custom.caption) ? {} : false });
+
+function syncCustom() {
+  const c = state.custom;
+  $('cYaw').value = c.yaw; $('cLight').value = c.light; $('cShadow').value = c.shadow; $('cCaption').checked = c.caption;
+}
+function setBg(img, url) {
+  state.bg = img;
+  $('bgThumb').src = url || '';
+  if (!url) $('bgThumb').removeAttribute('src');
+  $('bgClear').hidden = !img;
+  $('bgState').textContent = img ? '' : '背景なし（透過PNGで保存）';
+  $('stage').classList.toggle('clear', !img && !!(state.theme && state.theme.custom));
+}
+async function useBg(blob, remember) {
+  if (!blob || !/^image\//.test(blob.type)) { toast('画像ファイルを選んでください'); return; }
+  const url = URL.createObjectURL(blob);
+  try {
+    setBg(await loadImage(url), url);
+    if (remember) store.set('custom:bg', blob);
+    if (state.theme && state.theme.custom) render();
+  } catch (e) { toast('背景の画像を読み込めませんでした'); }
+}
+function wireCustom() {
+  const input = $('bgFile');
+  $('bgPick').onclick = () => input.click();
+  input.onchange = () => { if (input.files[0]) useBg(input.files[0], true); input.value = ''; };
+  $('bgClear').onclick = () => { setBg(null); store.set('custom:bg', null); render(); };
+  const on = () => {
+    state.custom = { yaw: +$('cYaw').value, light: +$('cLight').value, shadow: +$('cShadow').value, caption: $('cCaption').checked };
+    store.set('custom:opt', state.custom);
+    schedule();
+  };
+  for (const id of ['cYaw', 'cLight', 'cShadow']) $(id).addEventListener('input', on);
+  $('cCaption').addEventListener('change', on);
+}
+
 /* ---------------- 日付タブ ---------------- */
 const themes = new Map();     // date -> theme def（無い日は null）
 function buildDays(dates) {
@@ -302,8 +386,10 @@ function buildDays(dates) {
     b.onclick = () => selectDate(date);
     nav.appendChild(b);
   });
+  $('dayCustom').onclick = () => selectDate(CUSTOM_KEY);
 }
 function markDay(date) {
+  $('dayCustom').setAttribute('aria-current', date === CUSTOM_KEY ? 'true' : 'false');
   for (const b of $('days').children) {
     const on = b.dataset.date === date;
     b.setAttribute('aria-current', on ? 'true' : 'false');
@@ -316,9 +402,16 @@ async function selectDate(date) {
   if (!t) return;
   state.theme = t;
   markDay(date);
-  const d = parseYmd(date);
-  $('themeDate').textContent = `${pad(d.getMonth() + 1)}/${pad(d.getDate())}（${WEEK_JA[d.getDay()]}）`;
-  $('themeTitle').textContent = t.title;
+  if (t.custom) {
+    $('themeDate').textContent = 'カスタム';
+    $('themeTitle').textContent = '好きな背景にアクスタを置く';
+  } else {
+    const d = parseYmd(date);
+    $('themeDate').textContent = `${pad(d.getMonth() + 1)}/${pad(d.getDate())}（${WEEK_JA[d.getDay()]}）`;
+    $('themeTitle').textContent = t.title;
+  }
+  document.body.classList.toggle('is-custom', !!t.custom);
+  $('stage').classList.toggle('clear', !!t.custom && !state.bg);
   document.title = `${t.title}｜毎日おはV`;
   // URL に日付を残す（今日なら付けない）
   const q = new URLSearchParams(location.search);
@@ -350,7 +443,7 @@ async function selectDate(date) {
 
 /* 起動 */
 async function boot() {
-  wirePicker(); wireOutput(); wireSliders(); setBusy(false);
+  wirePicker(); wireOutput(); wireSliders(); wireCustom(); setBusy(false);
   if (DEV && QS.get('style')) E.Stage3D.setStyle(QS.get('style'));   // 制作確認用：描画スタイルの切り替え
   if (!E.GLX.available()) toast('この端末ではWebGL2が使えないため、正しく表示できません');
   const dates = windowDates();
@@ -360,15 +453,16 @@ async function boot() {
     if (t) { t.date = date; t.dir = `${THEME_ROOT}${date}/`; }
     themes.set(date, t);
   });
+  themes.set(CUSTOM_KEY, CUSTOM);
   buildDays(dates);
-  // 最初に開く日：?date（範囲内）> 今日 > 範囲内で最初に用意されている日
+  // カスタムの設定と背景（前回のもの）
+  state.custom = Object.assign({}, CUSTOM_DEFAULT, await store.get('custom:opt') || {});
+  syncCustom();
+  const savedBg = await store.get('custom:bg');
+  if (savedBg) await useBg(savedBg, false); else setBg(null);
+  // 最初に開く日：?date（範囲内 or custom）> 今日 > 範囲内で最初に用意されている日 > カスタム
   const want = QS.get('date');
-  const first = (want && themes.get(want)) ? want : (themes.get(dates[0]) ? dates[0] : dates.find(d => themes.get(d)));
-  if (!first) {
-    $('themeDate').textContent = '--/--';
-    $('themeTitle').textContent = 'この1週間のテーマは準備中です';
-    return;
-  }
+  const first = (want && themes.get(want)) ? want : (themes.get(dates[0]) ? dates[0] : (dates.find(d => themes.get(d)) || CUSTOM_KEY));
   const saved = await store.get('portrait');
   if (saved) await useBlob(saved, false, true);
   await selectDate(first);
