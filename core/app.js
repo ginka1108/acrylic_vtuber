@@ -380,7 +380,7 @@ function buildDays(dates) {
     const rel = DEV ? `${WEEK_JA[d.getDay()]}曜` : (i === 0 ? '今日' : i === 1 ? '明日' : `${WEEK_JA[d.getDay()]}曜`);
     b.innerHTML = `<span class="d1"></span><span class="d2"></span><span class="d3"></span>`;
     b.children[0].textContent = rel;
-    b.children[1].textContent = `${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+    b.children[1].textContent = `${d.getMonth() + 1}/${d.getDate()}`;
     b.children[2].textContent = t ? t.title : '準備中';
     b.disabled = !t;
     b.onclick = () => selectDate(date);
@@ -393,7 +393,6 @@ function markDay(date) {
   for (const b of $('days').children) {
     const on = b.dataset.date === date;
     b.setAttribute('aria-current', on ? 'true' : 'false');
-    if (on) b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
 }
 
